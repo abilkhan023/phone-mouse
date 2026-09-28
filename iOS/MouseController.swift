@@ -134,7 +134,7 @@ final class MouseController {
     private let keyRepeats = 3
     private let keyRepeatGap = 0.01
     private let typedLimit = 2000
-    private let linkTimeout = 1.5
+    private let linkTimeout = 2.5
     private let resendTicks = 5
     private let resendBatch = 32
     private let tapLimit = 0.3
@@ -435,7 +435,10 @@ final class MouseController {
         }
     }
 
+    // Anything sealed by the Mac shows it is there.
     private func received(_ packet: Packet) {
+        lastMacAt = ProcessInfo.processInfo.systemUptime
+        setLinked(true)
         switch packet {
         case let .clipboard(item):
             receiveClipboard(item)
@@ -449,8 +452,6 @@ final class MouseController {
             break
         }
         guard case let .ack(seq) = packet else { return }
-        lastMacAt = ProcessInfo.processInfo.systemUptime
-        setLinked(true)
         // An ack from before this launch belongs to another stream of numbers.
         guard Int32(bitPattern: seq &- keyStreamStart) >= 0, Int32(bitPattern: keySeq &- seq) >= 0 else { return }
         unsentKeys.removeAll { Int32(bitPattern: seq &- $0.seq) >= 0 }
@@ -505,6 +506,11 @@ final class MouseController {
     func media(_ key: Int) {
         modifiers = []
         press(KeyMap.function[key])
+    }
+
+    func pressFunction(_ keyCode: UInt8) {
+        modifiers.insert(.function)
+        press(keyCode)
     }
 
     func slide(forward: Bool) {

@@ -47,7 +47,7 @@ private struct MediaPad: View {
     }
 
     private func pad(_ symbol: String, _ name: String, tall: Bool = false, repeats: Bool = false, action: @escaping () -> Void) -> some View {
-        RemoteButton(symbol: symbol, name: name, height: tall ? 120 : 96, repeats: repeats, action: action)
+        RemoteButton(symbol: symbol, name: name, height: tall ? 120 : 96, repeats: repeats, caption: true, action: action)
     }
 }
 
@@ -58,8 +58,8 @@ private struct SlidesPad: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                RemoteButton(symbol: "chevron.left", name: "Previous slide", height: 150) { controller.slide(forward: false) }
-                RemoteButton(symbol: "chevron.right", name: "Next slide", height: 150) { controller.slide(forward: true) }
+                RemoteButton(symbol: "chevron.left", name: "Previous slide", height: 150, caption: true) { controller.slide(forward: false) }
+                RemoteButton(symbol: "chevron.right", name: "Next slide", height: 150, caption: true) { controller.slide(forward: true) }
             }
             HoldKey(onDown: { set(true) }, onUp: { set(false) }) {
                 VStack(spacing: 8) {
@@ -89,30 +89,68 @@ private struct SlidesPad: View {
 private struct ActionsPad: View {
     let controller: MouseController
 
-    private let actions: [(symbol: String, name: String, kind: GestureEvent.Kind)] = [
-        ("lock.fill", "Lock screen", .lockScreen),
-        ("moon.fill", "Display sleep", .displaySleep),
-        ("camera.viewfinder", "Screenshot", .screenshot),
-        ("crop", "Screenshot area", .screenshotArea),
-        ("record.circle", "Screenshot tools", .screenshotTools),
-        ("rectangle.3.group", "Mission Control", .swipeUp),
-        ("menubar.dock.rectangle", "Show desktop", .spreadOut),
-        ("square.grid.3x3.fill", "Apps", .pinchIn),
-        ("face.smiling", "Emoji", .emoji),
-        ("xmark.octagon.fill", "Force quit", .forceQuit),
+    private let actions: [(symbol: String, name: String, detail: String, kind: GestureEvent.Kind)] = [
+        ("lock.fill", "Lock screen", "Locks the Mac; unlock it with your password.", .lockScreen),
+        ("moon.fill", "Display sleep", "Turns the screen off. Move the pointer to wake it.", .displaySleep),
+        ("camera.viewfinder", "Screenshot", "Saves the whole screen as a picture on the Desktop.", .screenshot),
+        ("crop", "Screenshot of an area", "Then drag on the Mac over the part to capture.", .screenshotArea),
+        ("record.circle", "Screenshot tools", "Opens the panel for screen recording and options.", .screenshotTools),
+        ("rectangle.3.group", "Mission Control", "Shows every open window and desktop at once.", .swipeUp),
+        ("menubar.dock.rectangle", "Show desktop", "Moves the windows aside; again to bring them back.", .spreadOut),
+        ("square.grid.3x3.fill", "Apps", "Opens the list of all installed apps.", .pinchIn),
+        ("face.smiling", "Emoji", "Opens the emoji picker where the text cursor is.", .emoji),
+        ("xmark.octagon.fill", "Force quit", "Opens the window for closing an app that hangs.", .forceQuit),
     ]
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 12)], spacing: 12) {
+            VStack(spacing: 8) {
                 ForEach(actions, id: \.name) { action in
-                    RemoteButton(symbol: action.symbol, name: action.name, height: 92, caption: true) {
-                        controller.gesture(action.kind)
+                    RepeatKey(repeats: false, action: { controller.gesture(action.kind) }) { pressed in
+                        row(symbol: action.symbol, name: action.name, detail: action.detail, pressed: pressed)
                     }
                 }
-                ClipboardButton(controller: controller, large: true)
+                HStack(spacing: 12) {
+                    ClipboardButton(controller: controller)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Send clipboard")
+                            .font(.marking(16))
+                        Text("Puts the text or image copied on the phone on the Mac.")
+                            .font(.marking(12))
+                            .opacity(0.6)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Palette.ink)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 60)
+                .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
             }
         }
+    }
+
+    private func row(symbol: String, name: String, detail: String, pressed: Bool) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 22, weight: .medium))
+                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.marking(16))
+                Text(detail)
+                    .font(.marking(12))
+                    .opacity(0.6)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(pressed ? Palette.shellBottom : Palette.ink)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 60)
+        .background(pressed ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
+        .accessibilityElement(children: .combine)
     }
 }
 

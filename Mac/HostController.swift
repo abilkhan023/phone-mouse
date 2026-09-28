@@ -34,6 +34,13 @@ final class HostController {
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
     @ObservationIgnored private var offers: [ObjectIdentifier: Offer] = [:]
     @ObservationIgnored private var wrongCodes = 0
+    @ObservationIgnored private var lastHeartbeatAt: TimeInterval = 0
+    // Keeps macOS from napping the companion in the background, which would
+    // delay its timers: the heartbeat, and the cursor smoothing.
+    @ObservationIgnored private let activity = ProcessInfo.processInfo.beginActivity(
+        options: [.userInitiated, .latencyCritical],
+        reason: "Moving the cursor for Phone Mouse"
+    )
     @ObservationIgnored private var clipListener: NWListener?
     @ObservationIgnored private var clipStream: ClipboardStream?
     @ObservationIgnored private var clipPending: [ClipboardStream] = []
@@ -61,6 +68,7 @@ final class HostController {
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
     private let offerLimit = 8
+    private let heartbeatInterval = 0.3
     private let wrongCodeLimit = 5
     private let keyWindow: Int32 = 1000
     private static let counterKey = "lastCounter"
@@ -409,6 +417,20 @@ final class HostController {
             isClientActive = true
         }
         driver.apply(report)
+        if lastReportAt - lastHeartbeatAt > heartbeatInterval {
+            heartbeat()
+        }
+    }
+
+    // Tells the phone the Mac is there, and where the clipboard listens. Sent
+    // as reports come in, so it does not wait on a timer.
+    private func heartbeat() {
+        guard let connection else { return }
+        lastHeartbeatAt = ProcessInfo.processInfo.systemUptime
+        send(.ack(lastKeySeq ?? 0), on: connection)
+        if let port = clipListener?.port?.rawValue {
+            send(.clipboardPort(port), on: connection)
+        }
     }
 
     // Key events arrive as an ordered stream that the phone keeps sending until
@@ -459,11 +481,8 @@ final class HostController {
             savedCounter = lastCounter
             UserDefaults.standard.set(String(lastCounter), forKey: Self.counterKey)
         }
-        if isClientActive, let connection {
-            send(.ack(lastKeySeq ?? 0), on: connection)
-            if let port = clipListener?.port?.rawValue {
-                send(.clipboardPort(port), on: connection)
-            }
+        if isClientActive {
+            heartbeat()
         }
         checkPasteboard()
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }

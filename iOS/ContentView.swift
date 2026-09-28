@@ -375,21 +375,6 @@ struct MacKeyStrip: View {
         ("pg↑", KeyMap.pageUp, "Page up"),
         ("pg↓", KeyMap.pageDown, "Page down"),
     ]
-    // Without fn the top row shows what it does on a MacBook.
-    private let topRow: [(symbol: String?, name: String)] = [
-        ("sun.min", "Brightness down"),
-        ("sun.max", "Brightness up"),
-        ("rectangle.3.group", "Mission Control"),
-        ("magnifyingglass", "Spotlight"),
-        (nil, "F5"),
-        (nil, "F6"),
-        ("backward.fill", "Previous track"),
-        ("playpause.fill", "Play or pause"),
-        ("forward.fill", "Next track"),
-        ("speaker.slash.fill", "Mute"),
-        ("speaker.wave.1.fill", "Volume down"),
-        ("speaker.wave.3.fill", "Volume up"),
-    ]
     private let modifierKeys: [(label: String, modifier: KeyModifiers, name: String)] = [
         ("⌃", .control, "Control"),
         ("⌥", .option, "Option"),
@@ -407,10 +392,6 @@ struct MacKeyStrip: View {
         VStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    let plain = controller.modifiers.contains(.function)
-                    RepeatKey(repeats: false, action: { controller.toggle(.function) }) { pressed in
-                        cap(Text("fn"), name: "Function", lit: plain || pressed)
-                    }
                     RepeatKey(repeats: false, action: { controller.press(KeyMap.globe) }) { pressed in
                         cap(Image(systemName: "globe"), name: "Switch input language", lit: pressed)
                     }
@@ -418,13 +399,10 @@ struct MacKeyStrip: View {
                     ForEach(extras, id: \.code) { key in
                         repeating(Text(key.label), name: key.name, code: key.code)
                     }
+                    // Plain F1 to F12 here; the media functions live in the remote.
                     ForEach(Array(KeyMap.function.enumerated()), id: \.element) { index, code in
-                        let key = topRow[index]
-                        let label = "F\(index + 1)"
-                        if let symbol = key.symbol, !plain {
-                            repeating(Image(systemName: symbol), name: key.name, code: code)
-                        } else {
-                            repeating(Text(label), name: label, code: code)
+                        RepeatKey(action: { controller.pressFunction(code) }) { pressed in
+                            cap(Text("F\(index + 1)"), name: "F\(index + 1)", lit: pressed)
                         }
                     }
                 }
