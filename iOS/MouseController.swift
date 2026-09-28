@@ -1,0 +1,172 @@
+import CoreMotion
+import Observation
+import UIKit
+
+enum PointerMode: String, CaseIterable {
+    case desk
+    case touchpad
+
+    var title: String {
+        switch self {
+        case .desk: "On desk"
+        case .touchpad: "Touchpad"
+        }
+    }
+
+    var hint: String {
+        switch self {
+        case .desk: "Slide the phone across the desk like a mouse."
+        case .touchpad: "Drag to move, tap to click, two fingers to scroll."
+        }
+    }
+}
+
+@Observable
+final class MouseController {
+    private(set) var hostName: String?
+    private(set) var mode: PointerMode
+
+    @ObservationIgnored private var fallbackTimer: Timer?
+    @ObservationIgnored private var seq: UInt32 = 0
+    @ObservationIgnored private var buttons: MouseButtons = []
+    @ObservationIgnored private var pendingMove = CGSize.zero
+    @ObservationIgnored private var pendingScroll = CGSize.zero
+    @ObservationIgnored private var frozenUntil: TimeInterval = 0
+    @ObservationIgnored private var lastSampleAt: TimeInterval = 0
+    @ObservationIgnored private var lastTouchAt: TimeInterval = 0
+    @ObservationIgnored private var desk = DeskTracker()
+
+    private static let modeKey = "pointerMode"
+
+    private let motion = CMMotionManager()
+    private let link = HostLink()
+    private let haptics = UIImpactFeedbackGenerator(style: .rigid)
+    private let rate = 100.0
+    private let deskGain = 18000.0
+    private let deskBoostSpeed = 0.08
+    private let deskBoostLimit = 3.0
+    private let touchGain = 1.2
+    private let touchBoostSpeed = 400.0
+    private let touchBoostLimit = 3.0
+    private let scrollGain = 1.5
+    private let freezeDuration = 0.12
+    private let clickDuration = 0.04
+
+    init() {
+        mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .desk
+        link.onHostChange = { [weak self] in self?.hostName = $0 }
+    }
+
+    func start() {
+        UIApplication.shared.isIdleTimerDisabled = true
+        link.start()
+        if motion.isDeviceMotionAvailable {
+            motion.deviceMotionUpdateInterval = 1 / rate
+            motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
+                self?.send(motion: data)
+            }
+        } else {
+            let timer = Timer(timeInterval: 1 / rate, repeats: true) { [weak self] _ in
+                self?.send(motion: nil)
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            fallbackTimer = timer
+        }
+    }
+
+    func stop() {
+        motion.stopDeviceMotionUpdates()
+        fallbackTimer?.invalidate()
+        fallbackTimer = nil
+        buttons = []
+        send(motion: nil)
+        link.stop()
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    func select(_ mode: PointerMode) {
+        self.mode = mode
+        desk.reset()
+        pendingMove = .zero
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.modeKey)
+    }
+
+    func setButton(_ button: MouseButtons, pressed: Bool) {
+        if pressed {
+            buttons.insert(button)
+        } else {
+            buttons.remove(button)
+        }
+        freeze()
+        haptics.impactOccurred(intensity: pressed ? 1 : 0.5)
+        send(motion: nil)
+    }
+
+    func click(_ button: MouseButtons) {
+        setButton(button, pressed: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + clickDuration) { [weak self] in
+            self?.setButton(button, pressed: false)
+        }
+    }
+
+    func movePointer(by delta: CGSize) {
+        let now = ProcessInfo.processInfo.systemUptime
+        let dt = min(max(now - lastTouchAt, 1.0 / 240), 1.0 / 30)
+        lastTouchAt = now
+        let speed = hypot(delta.width, delta.height) / dt
+        let gain = touchGain + min(speed / touchBoostSpeed, touchBoostLimit)
+        pendingMove.width += delta.width * gain
+        pendingMove.height += delta.height * gain
+    }
+
+    func scroll(by delta: CGSize) {
+        pendingScroll.width += delta.width * scrollGain
+        pendingScroll.height += delta.height * scrollGain
+        freeze()
+    }
+
+    private func freeze() {
+        frozenUntil = ProcessInfo.processInfo.systemUptime + freezeDuration
+        desk.forgiveLift()
+    }
+
+    private func send(motion: CMDeviceMotion?) {
+        var report = MouseReport(seq: seq, buttons: buttons)
+        seq &+= 1
+        let delta = pointerDelta(for: motion)
+        report.dx = Float(delta.x)
+        report.dy = Float(delta.y)
+        report.scrollX = Float(pendingScroll.width)
+        report.scrollY = Float(pendingScroll.height)
+        pendingScroll = .zero
+        link.send(report)
+    }
+
+    private func pointerDelta(for motion: CMDeviceMotion?) -> CGPoint {
+        switch mode {
+        case .touchpad:
+            let delta = CGPoint(x: pendingMove.width, y: pendingMove.height)
+            pendingMove = .zero
+            return delta
+        case .desk:
+            guard let motion else { return .zero }
+            let dt = min(max(motion.timestamp - lastSampleAt, 0), 0.05)
+            lastSampleAt = motion.timestamp
+            guard ProcessInfo.processInfo.systemUptime >= frozenUntil else {
+                desk.reset()
+                return .zero
+            }
+            let shift = desk.displacement(
+                acceleration: -SIMD2(motion.userAcceleration.x, motion.userAcceleration.y),
+                vertical: motion.userAcceleration.z,
+                rotation: SIMD3(motion.rotationRate.x, motion.rotationRate.y, motion.rotationRate.z),
+                gravityZ: motion.gravity.z,
+                time: motion.timestamp,
+                dt: dt
+            )
+            let speed = dt > 0 ? hypot(shift.x, shift.y) / dt : 0
+            let gain = deskGain * min(1 + speed / deskBoostSpeed, deskBoostLimit)
+            return CGPoint(x: shift.x * gain, y: -shift.y * gain)
+        }
+    }
+}

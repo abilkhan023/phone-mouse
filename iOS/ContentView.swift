@@ -1,0 +1,296 @@
+import SwiftUI
+
+struct ContentView: View {
+    let controller: MouseController
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        GeometryReader { safeArea in
+            let insets = safeArea.safeAreaInsets
+            ZStack(alignment: .top) {
+                Shell(lit: controller.hostName != nil)
+                VStack(spacing: 0) {
+                    Group {
+                        switch controller.mode {
+                        case .desk: ButtonDeck(controller: controller)
+                        case .touchpad: TouchpadDeck(controller: controller)
+                        }
+                    }
+                    .padding(.top, insets.top + 60)
+                    Hint(mode: controller.mode)
+                        .frame(height: 76)
+                        .padding(.bottom, insets.bottom)
+                }
+                StatusBar(controller: controller)
+                    .padding(.top, insets.top)
+            }
+            .ignoresSafeArea()
+        }
+        .preferredColorScheme(.dark)
+        .persistentSystemOverlays(.hidden)
+        .defersSystemGestures(on: .vertical)
+        .statusBarHidden()
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active {
+                controller.start()
+            } else {
+                controller.stop()
+            }
+        }
+    }
+}
+
+struct Shell: View {
+    let lit: Bool
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            LinearGradient(
+                colors: [Palette.shellTop, Palette.shellBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            EllipticalGradient(
+                colors: [Palette.led.opacity(0.6), Palette.led.opacity(0)],
+                center: .top,
+                startRadiusFraction: 0,
+                endRadiusFraction: 0.5
+            )
+            .frame(height: 300)
+            .opacity(lit ? 1 : 0)
+            .animation(.easeInOut(duration: 0.6), value: lit)
+        }
+    }
+}
+
+struct StatusBar: View {
+    let controller: MouseController
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(controller.hostName ?? "Looking for your Mac…")
+                .font(.marking(15))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .allowsHitTesting(false)
+            Spacer()
+            ModeSwitch(mode: controller.mode) { controller.select($0) }
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 48)
+    }
+}
+
+struct ModeSwitch: View {
+    let mode: PointerMode
+    let onSelect: (PointerMode) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(PointerMode.allCases, id: \.self) { option in
+                Button {
+                    onSelect(option)
+                } label: {
+                    Text(option.title)
+                        .font(.marking(14))
+                        .foregroundStyle(option == mode ? Palette.shellBottom : Palette.ink)
+                        .padding(.horizontal, 14)
+                        .frame(height: 30)
+                        .background(option == mode ? Palette.ink : .clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(option == mode ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(Palette.groove.opacity(0.5), in: Capsule())
+        .fixedSize()
+        .animation(.snappy(duration: 0.2), value: mode)
+    }
+}
+
+struct Hint: View {
+    let mode: PointerMode
+
+    var body: some View {
+        Text(mode.hint)
+            .font(.marking(15))
+            .foregroundStyle(Palette.ink.opacity(0.7))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+    }
+}
+
+struct ButtonDeck: View {
+    let controller: MouseController
+    @GestureState private var leftPressed = false
+    @GestureState private var rightPressed = false
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            DeckHalf(side: .left)
+                .fill(leftPressed ? Palette.pressed : .clear)
+            DeckHalf(side: .right)
+                .fill(rightPressed ? Palette.pressed : .clear)
+            DeckSeams()
+                .stroke(Palette.groove, lineWidth: 2)
+            pad(.left, pressed: $leftPressed, label: "Left button")
+            pad(.right, pressed: $rightPressed, label: "Right button")
+            Wheel { controller.scroll(by: CGSize(width: 0, height: $0)) }
+                .frame(width: 60, height: 210)
+                .padding(.top, 84)
+        }
+        .onChange(of: leftPressed) { _, value in controller.setButton(.left, pressed: value) }
+        .onChange(of: rightPressed) { _, value in controller.setButton(.right, pressed: value) }
+    }
+
+    private func pad(_ side: DeckHalf.Side, pressed: GestureState<Bool>, label: String) -> some View {
+        Color.clear
+            .contentShape(DeckHalf(side: side))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating(pressed) { _, state, _ in state = true }
+            )
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+struct TouchpadDeck: View {
+    let controller: MouseController
+    @GestureState private var leftPressed = false
+    @GestureState private var rightPressed = false
+
+    private let corner: CGFloat = 28
+
+    var body: some View {
+        VStack(spacing: 10) {
+            TouchSurface(
+                onMove: { controller.movePointer(by: $0) },
+                onScroll: { controller.scroll(by: $0) },
+                onTap: { controller.click($0 >= 2 ? .right : .left) }
+            )
+            .background(Palette.pressed, in: RoundedRectangle(cornerRadius: corner))
+            .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
+            .accessibilityLabel("Touchpad")
+            HStack(spacing: 10) {
+                key(isPressed: leftPressed, pressed: $leftPressed, label: "Left button")
+                key(isPressed: rightPressed, pressed: $rightPressed, label: "Right button")
+            }
+            .frame(height: 88)
+        }
+        .padding(.horizontal, 14)
+        .onChange(of: leftPressed) { _, value in controller.setButton(.left, pressed: value) }
+        .onChange(of: rightPressed) { _, value in controller.setButton(.right, pressed: value) }
+    }
+
+    private func key(isPressed: Bool, pressed: GestureState<Bool>, label: String) -> some View {
+        RoundedRectangle(cornerRadius: corner)
+            .fill(isPressed ? Palette.groove : Palette.pressed)
+            .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
+            .contentShape(RoundedRectangle(cornerRadius: corner))
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating(pressed) { _, state, _ in state = true }
+            )
+            .accessibilityLabel(label)
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+struct DeckHalf: Shape {
+    enum Side {
+        case left
+        case right
+    }
+
+    let side: Side
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY - DeckSeams.front))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.midX, y: rect.maxY),
+            control: CGPoint(x: rect.minX + rect.width / 4, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.minY + DeckSeams.rise),
+            control: CGPoint(x: rect.minX + rect.width / 4, y: rect.minY)
+        )
+        path.closeSubpath()
+        guard side == .right else { return path }
+        return path.applying(
+            CGAffineTransform(translationX: rect.minX + rect.maxX, y: 0).scaledBy(x: -1, y: 1)
+        )
+    }
+}
+
+struct DeckSeams: Shape {
+    static let rise: CGFloat = 56
+    static let front: CGFloat = 28
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY + Self.rise))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + Self.rise),
+            control: CGPoint(x: rect.midX, y: rect.minY - Self.rise)
+        )
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY - Self.front))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.maxY - Self.front),
+            control: CGPoint(x: rect.midX, y: rect.maxY + Self.front)
+        )
+        return path
+    }
+}
+
+struct Wheel: View {
+    let onScroll: (CGFloat) -> Void
+    @GestureState private var drag: CGFloat = 0
+    @State private var settled: CGFloat = 0
+
+    private let pitch: CGFloat = 14
+
+    var body: some View {
+        let travel = settled + drag
+        Capsule()
+            .fill(Palette.groove)
+            .overlay {
+                Canvas { context, size in
+                    var y = travel.truncatingRemainder(dividingBy: pitch) - pitch
+                    while y < size.height + pitch {
+                        let ridge = CGRect(x: 0, y: y, width: size.width, height: 3)
+                        context.fill(Path(ridge), with: .color(Palette.ridge))
+                        y += pitch
+                    }
+                }
+                .background(Palette.wheel)
+                .overlay(
+                    LinearGradient(
+                        colors: [.black.opacity(0.45), .clear, .black.opacity(0.45)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .clipShape(Capsule())
+                .padding(6)
+            }
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($drag) { value, state, _ in
+                        onScroll(value.translation.height - state)
+                        state = value.translation.height
+                    }
+                    .onEnded { settled += $0.translation.height }
+            )
+            .sensoryFeedback(.selection, trigger: Int((travel / pitch).rounded(.down)))
+            .accessibilityLabel("Scroll wheel")
+    }
+}
