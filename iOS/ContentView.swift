@@ -52,8 +52,12 @@ struct ContentView: View {
         }
         .ignoresSafeArea(.keyboard)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
-            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.keyboard) {
+            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+                  abs(frame.minY - keyboardTop) > 1 else { return }
+            // Only showing and hiding the keyboard is animated; small changes
+            // while it is up follow it at once instead of bouncing the layout.
+            let showsOrHides = frame.minY.isInfinite || keyboardTop.isInfinite || abs(frame.minY - keyboardTop) > 100
+            withAnimation(showsOrHides ? .keyboard : nil) {
                 keyboardTop = frame.minY
             }
         }
@@ -338,22 +342,29 @@ struct TypedLine: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ScrollViewReader { reader in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        Text(text.isEmpty ? "Start typing" : text.replacingOccurrences(of: "\n", with: " ⏎ "))
-                            .font(.marking(17))
-                            .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
-                            .fixedSize()
-                        Rectangle()
-                            .fill(Palette.led)
-                            .frame(width: 2, height: 20)
-                            .id(Self.end)
+            GeometryReader { box in
+                ScrollViewReader { reader in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 2) {
+                            Text(text.isEmpty ? "Start typing" : text.replacingOccurrences(of: "\n", with: " ⏎ "))
+                                .font(.marking(17))
+                                .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
+                                .fixedSize()
+                            Rectangle()
+                                .fill(Palette.led)
+                                .frame(width: 2, height: 20)
+                                .id(Self.end)
+                        }
+                        .frame(minWidth: box.size.width, maxHeight: .infinity, alignment: .leading)
                     }
-                }
-                .defaultScrollAnchor(.trailing)
-                .onChange(of: text) {
-                    reader.scrollTo(Self.end, anchor: .trailing)
+                    .onAppear { reader.scrollTo(Self.end, anchor: .trailing) }
+                    .onChange(of: text) {
+                        var instant = Transaction()
+                        instant.disablesAnimations = true
+                        withTransaction(instant) {
+                            reader.scrollTo(Self.end, anchor: .trailing)
+                        }
+                    }
                 }
             }
             if !text.isEmpty {

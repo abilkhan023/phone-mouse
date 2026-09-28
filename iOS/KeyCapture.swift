@@ -44,6 +44,9 @@ final class KeyCaptureField: UITextField, UITextFieldDelegate {
         smartInsertDeleteType = .no
         inlinePredictionType = .no
         keyboardAppearance = .dark
+        textContentType = .init(rawValue: "")
+        inputAssistantItem.leadingBarButtonGroups = []
+        inputAssistantItem.trailingBarButtonGroups = []
         tintColor = .clear
         textColor = .clear
         reset(line: "")
