@@ -41,6 +41,8 @@ struct MenuContent: View {
         if !host.isTrusted {
             Button("Allow cursor control…") { host.requestAccess() }
         }
+        Toggle("Share Clipboard", isOn: Binding(get: { host.syncsClipboard }, set: { host.syncsClipboard = $0 }))
+        Toggle("Open at Login", isOn: Binding(get: { host.opensAtLogin }, set: { host.setOpensAtLogin($0) }))
         Button("Pair iPhone…") {
             NSApp.activate()
             openWindow(id: PairingView.windowID)

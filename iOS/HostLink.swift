@@ -2,14 +2,22 @@ import Foundation
 import Network
 
 final class HostLink {
+    enum Route: String {
+        case wifi = "Wi-Fi"
+        case direct = "Wi-Fi direct"
+        case cable = "Cable"
+    }
+
     var onHostChange: ((String?) -> Void)?
     var onPacket: ((Packet) -> Void)?
     var onHostsChange: (([String]) -> Void)?
-    var pairing: Pairing? {
+    var onRouteChange: ((Route?) -> Void)?
+    // Paired Macs, the preferred one first. The link connects to the first
+    // of them in sight.
+    var pairings: [Pairing] = [] {
         didSet {
-            channel = pairing.map { SecureChannel(key: $0.key) }
-            guard pairing != oldValue, wifiMonitor != nil else { return }
-            browse(peerToPeer: !hasWifi)
+            guard pairings != oldValue, wifiMonitor != nil else { return }
+            update(browser?.browseResults ?? [])
         }
     }
 
@@ -20,8 +28,10 @@ final class HostLink {
     private var hasWifi = false
     private var usesPeerToPeer = false
     private var channel: SecureChannel?
+    private var connectedName: String?
     private var counter: UInt64 = 0
     private var macCounter: UInt64 = 0
+    private var clipStream: ClipboardStream?
 
     private let fallbackDelay = 3.0
 
@@ -45,10 +55,22 @@ final class HostLink {
     // The counter starts from the clock so it keeps growing across launches,
     // which is what the Mac checks to reject replayed packets.
     func send(_ packet: Packet) {
-        guard let connection, connection.state == .ready, let channel else { return }
-        counter = SecureChannel.counter(after: counter)
-        guard let data = channel.seal(packet, counter: counter, from: .phone) else { return }
+        guard let connection, connection.state == .ready, let data = seal(packet) else { return }
         connection.send(content: data, completion: .idempotent)
+    }
+
+    // Returns false while there is no clipboard connection yet.
+    @discardableResult
+    func sendClipboard(_ item: ClipboardItem) -> Bool {
+        guard let clipStream else { return false }
+        clipStream.send(.clipboard(item))
+        return true
+    }
+
+    private func seal(_ packet: Packet) -> Data? {
+        guard let channel else { return nil }
+        counter = SecureChannel.counter(after: counter)
+        return channel.seal(packet, counter: counter, from: .phone)
     }
 
     // Macs the phone can see, for pairing by code.
@@ -100,8 +122,17 @@ final class HostLink {
         fallbackTimer = nil
         browser?.cancel()
         browser = nil
+        disconnect()
+    }
+
+    private func disconnect() {
         connection?.cancel()
         connection = nil
+        connectedName = nil
+        channel = nil
+        clipStream?.close()
+        clipStream = nil
+        onRouteChange?(nil)
     }
 
     private func scheduleFallback() {
@@ -115,15 +146,13 @@ final class HostLink {
     }
 
     private func update(_ results: Set<NWBrowser.Result>) {
-        onHostsChange?(results.compactMap { Self.name(of: $0.endpoint) }.sorted())
-        if let connection, results.contains(where: { $0.endpoint == connection.endpoint }) { return }
-        connection?.cancel()
-        connection = nil
-        let paired = results.map(\.endpoint).filter {
-            if case let .service(name, _, _, _) = $0 { return name == pairing?.hostName }
-            return false
-        }
-        guard let endpoint = paired.first else {
+        let names = results.compactMap { Self.name(of: $0.endpoint) }
+        onHostsChange?(names.sorted())
+        let target = pairings.first { names.contains($0.hostName) }
+        if let connection, let target, target.hostName == connectedName,
+           results.contains(where: { $0.endpoint == connection.endpoint }) { return }
+        disconnect()
+        guard let target, let endpoint = results.map(\.endpoint).first(where: { Self.name(of: $0) == target.hostName }) else {
             onHostChange?(nil)
             if !usesPeerToPeer {
                 scheduleFallback()
@@ -132,18 +161,29 @@ final class HostLink {
         }
         fallbackTimer?.invalidate()
         fallbackTimer = nil
+        channel = SecureChannel(key: target.key)
+        connectedName = target.hostName
         connect(to: endpoint)
     }
 
     private func connect(to endpoint: NWEndpoint) {
+        macCounter = 0
         let connection = NWConnection(to: endpoint, using: Self.parameters(peerToPeer: usesPeerToPeer))
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection, connection === self.connection else { return }
-            if case .failed = state {
-                connection.cancel()
-                self.connection = nil
+            switch state {
+            case .failed:
+                self.disconnect()
                 self.update(self.browser?.browseResults ?? [])
+            case .ready:
+                self.onRouteChange?(Self.route(of: connection))
+            default:
+                break
             }
+        }
+        connection.pathUpdateHandler = { [weak self, weak connection] _ in
+            guard let self, let connection, connection === self.connection else { return }
+            self.onRouteChange?(Self.route(of: connection))
         }
         connection.start(queue: .main)
         self.connection = connection
@@ -159,11 +199,45 @@ final class HostLink {
             if let data, let channel = self.channel,
                let (packet, counter) = channel.open(data, from: .mac), counter > self.macCounter {
                 self.macCounter = counter
-                self.onPacket?(packet)
+                if case let .clipboardPort(port) = packet {
+                    self.openClipboard(port: port)
+                } else {
+                    self.onPacket?(packet)
+                }
             }
             if error == nil {
                 self.receive(on: connection)
             }
         }
+    }
+
+    private static func route(of connection: NWConnection) -> Route? {
+        guard let path = connection.currentPath else { return nil }
+        if let interface = path.availableInterfaces.first(where: { path.usesInterfaceType($0.type) }),
+           interface.name.hasPrefix("awdl") || interface.name.hasPrefix("llw") {
+            return .direct
+        }
+        if path.usesInterfaceType(.wifi) { return .wifi }
+        if path.usesInterfaceType(.wiredEthernet) || path.usesInterfaceType(.other) { return .cable }
+        return .wifi
+    }
+
+    // The clipboard goes over TCP to the same Mac, on the port it announced.
+    private func openClipboard(port: UInt16) {
+        guard clipStream == nil, let connection, let channel,
+              case let .hostPort(host, _)? = connection.currentPath?.remoteEndpoint,
+              let port = NWEndpoint.Port(rawValue: port) else { return }
+        let parameters = NWParameters.tcp
+        parameters.includePeerToPeer = usesPeerToPeer
+        let tcp = NWConnection(host: host, port: port, using: parameters)
+        let stream = ClipboardStream(connection: tcp, channel: channel, receivesFrom: .mac) { [weak self] in self?.seal($0) }
+        stream.onPacket = { [weak self] in self?.onPacket?($0) }
+        stream.onClose = { [weak self, weak stream] in
+            if self?.clipStream === stream {
+                self?.clipStream = nil
+            }
+        }
+        clipStream = stream
+        stream.send(.ping(0))
     }
 }

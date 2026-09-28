@@ -6,6 +6,7 @@ struct TouchSurface: UIViewRepresentable {
     let onScroll: (CGSize) -> Void
     let onTap: (Int) -> Void
     let onGesture: (GestureEvent.Kind) -> Void
+    let onScrollState: (Bool) -> Void
 
     func makeUIView(context: Context) -> TouchSurfaceView {
         let view = TouchSurfaceView()
@@ -19,6 +20,7 @@ struct TouchSurface: UIViewRepresentable {
         view.onScroll = onScroll
         view.onTap = onTap
         view.onGesture = onGesture
+        view.onScrollState = onScrollState
     }
 }
 
@@ -27,6 +29,7 @@ final class TouchSurfaceView: UIView {
     var onScroll: ((CGSize) -> Void)?
     var onTap: ((Int) -> Void)?
     var onGesture: ((GestureEvent.Kind) -> Void)?
+    var onScrollState: ((Bool) -> Void)?
 
     private let tapDuration = 0.25
     private let tapTravel: CGFloat = 10
@@ -42,6 +45,14 @@ final class TouchSurfaceView: UIView {
     private var startSpread: CGFloat = 0
     private var fired = false
     private var zooming = false
+    // Two fingers resting in a scroll; the Mac glides on when this ends.
+    private var scrolling = false {
+        didSet {
+            if scrolling != oldValue {
+                onScrollState?(scrolling)
+            }
+        }
+    }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if active.isEmpty {
@@ -125,9 +136,13 @@ final class TouchSurfaceView: UIView {
         delta.height /= count
         travel += hypot(delta.width, delta.height)
         if fingers >= 3 {
+            scrolling = false
             recognizeMultiFinger()
         } else if active.count == 2 {
-            if !recognizeZoom() {
+            if recognizeZoom() {
+                scrolling = false
+            } else {
+                scrolling = true
                 onScroll?(delta)
             }
         } else if active.count == 1, fingers == 1 {
@@ -138,6 +153,9 @@ final class TouchSurfaceView: UIView {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         active.subtract(touches)
         resetBaseline()
+        if active.count < 2 {
+            scrolling = false
+        }
         guard active.isEmpty, let time = event?.timestamp else { return }
         defer {
             fired = false
@@ -154,6 +172,9 @@ final class TouchSurfaceView: UIView {
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         active.subtract(touches)
         resetBaseline()
+        if active.count < 2 {
+            scrolling = false
+        }
         if active.isEmpty {
             fired = false
             zooming = false

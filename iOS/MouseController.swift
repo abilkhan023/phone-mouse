@@ -6,12 +6,23 @@ enum PointerMode: String, CaseIterable {
     case air
     case desk
     case touchpad
+    case remote
 
     var title: String {
         switch self {
         case .air: "In air"
         case .desk: "On desk"
         case .touchpad: "Touchpad"
+        case .remote: "Remote"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .air: "scope"
+        case .desk: "computermouse"
+        case .touchpad: "rectangle.and.hand.point.up.left"
+        case .remote: "av.remote"
         }
     }
 
@@ -20,6 +31,21 @@ enum PointerMode: String, CaseIterable {
         case .air: "Hold the phone and point it at the screen."
         case .desk: "Slide the phone across the desk like a mouse."
         case .touchpad: "Drag to move, tap to click, two fingers to scroll."
+        case .remote: ""
+        }
+    }
+}
+
+enum RemoteTab: String, CaseIterable {
+    case media
+    case slides
+    case actions
+
+    var title: String {
+        switch self {
+        case .media: "Media"
+        case .slides: "Slides"
+        case .actions: "Actions"
         }
     }
 }
@@ -38,7 +64,16 @@ final class MouseController {
     private(set) var isLinked = false
     private(set) var mode: PointerMode
     private(set) var typed: String
-    private(set) var pairing: Pairing?
+    // Paired Macs, the preferred one first.
+    private(set) var pairings: [Pairing]
+    private(set) var route: HostLink.Route?
+    // Half the round trip to the Mac, in milliseconds.
+    private(set) var latency: Double?
+    private(set) var notice: String?
+    var remoteTab: RemoteTab {
+        didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
+    }
+    let settings = Settings()
     // Latched by a tap, for the next key only.
     private(set) var modifiers: KeyModifiers = []
     // Held down by a finger on the key, and down on the Mac too.
@@ -72,9 +107,15 @@ final class MouseController {
     @ObservationIgnored private var lastTouchAt: TimeInterval = 0
     @ObservationIgnored private var desk = DeskTracker()
     @ObservationIgnored private var air = AirPointer()
+    @ObservationIgnored private var touchScrolling = false
+    @ObservationIgnored private var laserHeld = false
+    @ObservationIgnored private var pingID: UInt32 = 0
+    @ObservationIgnored private var pingSentAt: [UInt32: TimeInterval] = [:]
+    @ObservationIgnored private var noticeTimer: Timer?
 
     private static let modeKey = "pointerMode"
     private static let typedKey = "typedText"
+    private static let remoteKey = "remoteTab"
 
     private let motion = CMMotionManager()
     private let link = HostLink()
@@ -97,6 +138,8 @@ final class MouseController {
     private let resendTicks = 5
     private let resendBatch = 32
     private let tapLimit = 0.3
+    private let pingTicks = 100
+    private let latencyWeight = 0.3
 
     init() {
         mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
@@ -104,11 +147,16 @@ final class MouseController {
         keySeq = keyStart
         keyStreamStart = keyStart &+ 1
         typed = UserDefaults.standard.string(forKey: Self.typedKey) ?? ""
-        pairing = PairingStore.load()
-        isPairing = pairing == nil
-        link.pairing = pairing
-        link.onHostChange = { [weak self] in self?.hostName = $0 }
+        remoteTab = RemoteTab(rawValue: UserDefaults.standard.string(forKey: Self.remoteKey) ?? "") ?? .media
+        pairings = PairingStore.loadAll()
+        isPairing = pairings.isEmpty
+        link.pairings = pairings
+        link.onHostChange = { [weak self] in
+            self?.hostName = $0
+            self?.latency = nil
+        }
         link.onHostsChange = { [weak self] in self?.nearbyHosts = $0 }
+        link.onRouteChange = { [weak self] in self?.route = $0 }
         link.onPacket = { [weak self] in self?.received($0) }
         volumeKeys.onPress = { [weak self] in self?.changeVolume($0) }
     }
@@ -144,12 +192,85 @@ final class MouseController {
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
+    // A new pairing becomes the preferred Mac; others stay for switching.
     func pair(with pairing: Pairing) {
-        PairingStore.save(pairing)
-        self.pairing = pairing
-        link.pairing = pairing
+        savePairings([pairing] + pairings.filter { $0.hostName != pairing.hostName })
         isPairing = false
         cancelCodePairing()
+    }
+
+    func prefer(_ name: String) {
+        guard let chosen = pairings.first(where: { $0.hostName == name }) else { return }
+        savePairings([chosen] + pairings.filter { $0.hostName != name })
+    }
+
+    func forget(_ name: String) {
+        savePairings(pairings.filter { $0.hostName != name })
+        if pairings.isEmpty {
+            showPairing()
+        }
+    }
+
+    private func savePairings(_ list: [Pairing]) {
+        pairings = list
+        PairingStore.saveAll(list)
+        link.pairings = list
+    }
+
+    // Laser pointer for slides: the phone steers the cursor like in the air
+    // while the finger holds the button.
+    func setLaser(_ held: Bool) {
+        laserHeld = held
+        air.reset()
+        haptics.impactOccurred(intensity: held ? 0.8 : 0.4)
+    }
+
+    func setTouchScrolling(_ scrolling: Bool) {
+        touchScrolling = scrolling
+    }
+
+    // Phone to Mac goes through the system paste button, which reads the
+    // clipboard without asking each time.
+    func sendClipboard(_ providers: [NSItemProvider]) {
+        guard let provider = providers.first else { return }
+        if provider.canLoadObject(ofClass: UIImage.self) {
+            _ = provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+                guard let data = (object as? UIImage)?.pngData() else { return }
+                DispatchQueue.main.async { self?.deliver(ClipboardItem(kind: .png, data: data)) }
+            }
+        } else {
+            _ = provider.loadObject(ofClass: String.self) { [weak self] text, _ in
+                guard let text else { return }
+                DispatchQueue.main.async { self?.deliver(ClipboardItem(kind: .text, data: Data(text.utf8))) }
+            }
+        }
+    }
+
+    private func deliver(_ item: ClipboardItem) {
+        guard item.data.count <= ClipboardItem.sizeLimit else {
+            show("Too large to send")
+            return
+        }
+        show(link.sendClipboard(item) ? "Sent to the Mac clipboard" : "Not connected to a Mac yet")
+    }
+
+    private func show(_ text: String) {
+        notice = text
+        noticeTimer?.invalidate()
+        let timer = Timer(timeInterval: 2, repeats: false) { [weak self] _ in self?.notice = nil }
+        RunLoop.main.add(timer, forMode: .common)
+        noticeTimer = timer
+    }
+
+    private func receiveClipboard(_ item: ClipboardItem) {
+        switch item.kind {
+        case .text:
+            UIPasteboard.general.string = String(decoding: item.data, as: UTF8.self)
+        case .png:
+            guard let image = UIImage(data: item.data) else { return }
+            UIPasteboard.general.image = image
+        }
+        show(item.kind == .png ? "Image copied from the Mac" : "Text copied from the Mac")
     }
 
     // The pairing screen covers the touchpad, so its keyboard goes away.
@@ -315,6 +436,18 @@ final class MouseController {
     }
 
     private func received(_ packet: Packet) {
+        switch packet {
+        case let .clipboard(item):
+            receiveClipboard(item)
+            return
+        case let .pong(id):
+            guard let sentAt = pingSentAt.removeValue(forKey: id) else { return }
+            let sample = (ProcessInfo.processInfo.systemUptime - sentAt) * 500
+            latency = latency.map { $0 + (sample - $0) * latencyWeight } ?? sample
+            return
+        default:
+            break
+        }
         guard case let .ack(seq) = packet else { return }
         lastMacAt = ProcessInfo.processInfo.systemUptime
         setLinked(true)
@@ -348,7 +481,13 @@ final class MouseController {
         haptics.impactOccurred(intensity: 0.7)
     }
 
+    // In the slides remote the volume buttons turn the slides, like a
+    // presenter clicker; everywhere else they set the Mac's volume.
     private func changeVolume(_ direction: VolumeEvent.Direction) {
+        if mode == .remote, remoteTab == .slides {
+            slide(forward: direction == .up)
+            return
+        }
         volumeSeq &+= 1
         repeatSend(.volume(VolumeEvent(seq: volumeSeq, direction: direction)))
     }
@@ -361,19 +500,32 @@ final class MouseController {
         }
     }
 
+    // The Mac's top row keys carry the media functions, so the remote sends
+    // those: F7 to F12 without fn.
+    func media(_ key: Int) {
+        modifiers = []
+        press(KeyMap.function[key])
+    }
+
+    func slide(forward: Bool) {
+        modifiers = []
+        press(forward ? KeyMap.right : KeyMap.left)
+    }
+
     func movePointer(by delta: CGSize) {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(max(now - lastTouchAt, 1.0 / 240), 1.0 / 30)
         lastTouchAt = now
         let speed = hypot(delta.width, delta.height) / dt
-        let gain = touchGain + min(speed / touchBoostSpeed, touchBoostLimit)
+        let gain = (touchGain + min(speed / touchBoostSpeed, touchBoostLimit)) * settings.pointerSpeed
         pendingMove.width += delta.width * gain
         pendingMove.height += delta.height * gain
     }
 
     func scroll(by delta: CGSize) {
-        pendingScroll.width += delta.width * scrollGain
-        pendingScroll.height += delta.height * scrollGain
+        let gain = scrollGain * settings.scrollSpeed * (settings.naturalScrolling ? 1 : -1)
+        pendingScroll.width += delta.width * gain
+        pendingScroll.height += delta.height * gain
         freeze()
     }
 
@@ -390,7 +542,14 @@ final class MouseController {
             }
             if isLinked, ProcessInfo.processInfo.systemUptime - lastMacAt > linkTimeout {
                 setLinked(false)
+                latency = nil
             }
+        }
+        if ticks % pingTicks == 0, isLinked {
+            pingID &+= 1
+            pingSentAt = pingSentAt.filter { $0.key &+ 5 > pingID }
+            pingSentAt[pingID] = ProcessInfo.processInfo.systemUptime
+            link.send(.ping(pingID))
         }
         var report = MouseReport(seq: seq, buttons: buttons)
         seq &+= 1
@@ -400,6 +559,7 @@ final class MouseController {
         pendingMove = .zero
         report.scrollX = Float(pendingScroll.width)
         report.scrollY = Float(pendingScroll.height)
+        report.isScrolling = mode == .touchpad && touchScrolling
         pendingScroll = .zero
         link.send(.mouse(report))
     }
@@ -408,21 +568,24 @@ final class MouseController {
         guard let motion, mode != .touchpad else { return .zero }
         let dt = min(max(motion.timestamp - lastSampleAt, 0), 0.05)
         lastSampleAt = motion.timestamp
+        let delta = motionDelta(motion, dt: dt)
+        return CGPoint(x: delta.x * settings.pointerSpeed, y: delta.y * settings.pointerSpeed)
+    }
+
+    private func motionDelta(_ motion: CMDeviceMotion, dt: Double) -> CGPoint {
         let frozen = ProcessInfo.processInfo.systemUptime < frozenUntil
         switch mode {
         case .touchpad:
             return .zero
+        case .remote:
+            guard laserHeld else { return .zero }
+            return airStep(motion, dt: dt)
         case .air:
             guard !frozen else {
                 air.reset()
                 return .zero
             }
-            let step = air.movement(
-                rotation: SIMD3(motion.rotationRate.x, motion.rotationRate.y, motion.rotationRate.z),
-                gravity: SIMD3(motion.gravity.x, motion.gravity.y, motion.gravity.z),
-                dt: dt
-            )
-            return CGPoint(x: step.x, y: step.y)
+            return airStep(motion, dt: dt)
         case .desk:
             guard !frozen else {
                 desk.reset()
@@ -440,5 +603,14 @@ final class MouseController {
             let gain = deskGain * min(1 + speed / deskBoostSpeed, deskBoostLimit)
             return CGPoint(x: shift.x * gain, y: -shift.y * gain)
         }
+    }
+
+    private func airStep(_ motion: CMDeviceMotion, dt: Double) -> CGPoint {
+        let step = air.movement(
+            rotation: SIMD3(motion.rotationRate.x, motion.rotationRate.y, motion.rotationRate.z),
+            gravity: SIMD3(motion.gravity.x, motion.gravity.y, motion.gravity.z),
+            dt: dt
+        )
+        return CGPoint(x: step.x, y: step.y)
     }
 }

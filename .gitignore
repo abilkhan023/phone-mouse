@@ -6,3 +6,4 @@ xcuserdata/
 *.xcscmblueprint
 dist/
 .idea/
+.build/

@@ -9,6 +9,7 @@ struct ContentView: View {
     let controller: MouseController
     @Environment(\.scenePhase) private var scenePhase
     @State private var keyboardTop = CGFloat.infinity
+    @State private var showsSettings = false
 
     var body: some View {
         GeometryReader { safeArea in
@@ -25,6 +26,7 @@ struct ContentView: View {
                         switch controller.mode {
                         case .air, .desk: ButtonDeck(controller: controller)
                         case .touchpad: TouchpadDeck(controller: controller)
+                        case .remote: RemoteDeck(controller: controller)
                         }
                     }
                     .padding(.top, insets.top + 60)
@@ -36,21 +38,34 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 8)
                         .padding(.bottom, keyboardHeight)
+                    } else if controller.mode == .remote {
+                        Color.clear
+                            .frame(height: 24)
+                            .padding(.bottom, insets.bottom)
                     } else {
                         Hint(mode: controller.mode)
                             .frame(height: 76)
                             .padding(.bottom, insets.bottom)
                     }
                 }
-                StatusBar(controller: controller)
+                StatusBar(controller: controller) { showsSettings = true }
                     .padding(.top, insets.top)
+                if let notice = controller.notice {
+                    Notice(text: notice)
+                        .padding(.top, insets.top + 56)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 if controller.isPairing {
                     PairingSheet(controller: controller)
                 }
             }
             .ignoresSafeArea()
+            .animation(.snappy, value: controller.notice)
         }
         .ignoresSafeArea(.keyboard)
+        .sheet(isPresented: $showsSettings) {
+            SettingsView(settings: controller.settings)
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
             guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
                   abs(frame.minY - keyboardTop) > 1 else { return }
@@ -100,25 +115,56 @@ struct Shell: View {
 
 struct StatusBar: View {
     let controller: MouseController
+    let onSettings: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                controller.showPairing()
+            Menu {
+                if !controller.pairings.isEmpty {
+                    Section("Paired Macs") {
+                        ForEach(controller.pairings, id: \.hostName) { pairing in
+                            let name = pairing.hostName
+                            Button {
+                                controller.prefer(name)
+                            } label: {
+                                if name == controller.hostName {
+                                    Label(name, systemImage: "checkmark")
+                                } else {
+                                    Text(controller.nearbyHosts.contains(name) ? name : "\(name) (away)")
+                                }
+                            }
+                        }
+                    }
+                }
+                Button("Pair a Mac…", systemImage: "qrcode.viewfinder") { controller.showPairing() }
+                if let name = controller.hostName {
+                    Button("Forget \(name)", systemImage: "trash", role: .destructive) { controller.forget(name) }
+                }
+                Divider()
+                Button("Settings", systemImage: "gearshape", action: onSettings)
             } label: {
-                Image(systemName: "qrcode.viewfinder")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Palette.ink)
-                    .frame(width: 30, height: 30)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Pair with a Mac")
-            Text(status)
-                .font(.marking(15))
+                HStack(spacing: 8) {
+                    Image(systemName: "laptopcomputer")
+                        .font(.system(size: 15, weight: .medium))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(status)
+                            .font(.marking(15))
+                            .lineLimit(1)
+                        if let detail {
+                            Text(detail)
+                                .font(.marking(11))
+                                .opacity(0.6)
+                                .lineLimit(1)
+                        }
+                    }
+                }
                 .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .allowsHitTesting(false)
-            Spacer()
+                .frame(minHeight: 40)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Macs and settings")
+            .accessibilityValue(status)
+            Spacer(minLength: 4)
             ModeSwitch(mode: controller.mode) { controller.select($0) }
         }
         .padding(.horizontal, 14)
@@ -131,8 +177,16 @@ extension StatusBar {
         switch (controller.hostName, controller.isLinked) {
         case let (name?, true): name
         case let (name?, false): "Connecting to \(name)…"
-        case (nil, _): "Looking for your Mac…"
+        case (nil, _): controller.pairings.isEmpty ? "Not paired" : "Looking for your Mac…"
         }
+    }
+
+    // How the phone reaches the Mac and how long a report takes.
+    private var detail: String? {
+        guard controller.settings.showsLatency, controller.isLinked else { return nil }
+        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }]
+        let text = parts.compactMap { $0 }.joined(separator: " · ")
+        return text.isEmpty ? nil : text
     }
 }
 
@@ -146,14 +200,14 @@ struct ModeSwitch: View {
                 Button {
                     onSelect(option)
                 } label: {
-                    Text(option.title)
-                        .font(.marking(14))
+                    Image(systemName: option.symbol)
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(option == mode ? Palette.shellBottom : Palette.ink)
-                        .padding(.horizontal, 10)
-                        .frame(height: 30)
+                        .frame(width: 40, height: 30)
                         .background(option == mode ? Palette.ink : .clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(option.title)
                 .accessibilityAddTraits(option == mode ? .isSelected : [])
             }
         }
@@ -161,6 +215,20 @@ struct ModeSwitch: View {
         .background(Palette.groove.opacity(0.5), in: Capsule())
         .fixedSize()
         .animation(.snappy(duration: 0.2), value: mode)
+    }
+}
+
+struct Notice: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.marking(15))
+            .foregroundStyle(Palette.shellBottom)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Palette.ink, in: Capsule())
+            .allowsHitTesting(false)
     }
 }
 
@@ -186,7 +254,7 @@ struct PairingSheet: View {
                         .padding(.horizontal, 32)
                     CodePairingSection(controller: controller)
                         .padding(.horizontal, 24)
-                    if controller.pairing != nil {
+                    if !controller.pairings.isEmpty {
                         Button("Cancel") {
                             controller.cancelCodePairing()
                             controller.isPairing = false
@@ -346,6 +414,7 @@ struct MacKeyStrip: View {
                     RepeatKey(repeats: false, action: { controller.press(KeyMap.globe) }) { pressed in
                         cap(Image(systemName: "globe"), name: "Switch input language", lit: pressed)
                     }
+                    ClipboardButton(controller: controller)
                     ForEach(extras, id: \.code) { key in
                         repeating(Text(key.label), name: key.name, code: key.code)
                     }
@@ -501,7 +570,8 @@ struct TouchpadDeck: View {
                 onMove: { controller.movePointer(by: $0) },
                 onScroll: { controller.scroll(by: $0) },
                 onTap: { controller.click($0 >= 2 ? .right : .left) },
-                onGesture: { controller.gesture($0) }
+                onGesture: { controller.gesture($0) },
+                onScrollState: { controller.setTouchScrolling($0) }
             )
             .background(Palette.pressed, in: RoundedRectangle(cornerRadius: corner))
             .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))

@@ -18,6 +18,10 @@ struct MouseReport: Equatable {
     var dy: Float = 0
     var scrollX: Float = 0
     var scrollY: Float = 0
+    // True while fingers rest on the touchpad in a scroll. Sent as a state in
+    // every report, like the buttons, so the Mac can tell when a scroll starts
+    // and ends even if reports are lost, and glide on after it ends.
+    var isScrolling = false
 }
 
 extension KeyEvent.Kind {
@@ -65,10 +69,30 @@ struct GestureEvent: Equatable {
         case lookUp
         case zoomIn
         case zoomOut
+        // Quick actions from the remote.
+        case lockScreen
+        case screenshot
+        case screenshotArea
+        case screenshotTools
+        case displaySleep
+        case forceQuit
+        case emoji
     }
 
     var seq: UInt32
     var kind: Kind
+}
+
+struct ClipboardItem: Equatable {
+    enum Kind: UInt8 {
+        case text
+        case png
+    }
+
+    static let sizeLimit = 20 * 1024 * 1024
+
+    var kind: Kind
+    var data: Data
 }
 
 enum Packet: Equatable {
@@ -79,6 +103,13 @@ enum Packet: Equatable {
     // The Mac confirms the key events it has typed, so the phone can send
     // again whatever got lost.
     case ack(UInt32)
+    // Round trips for the latency shown on the phone.
+    case ping(UInt32)
+    case pong(UInt32)
+    // The Mac's clipboard port. The clipboard goes over TCP, since an image
+    // can be megabytes.
+    case clipboardPort(UInt16)
+    case clipboard(ClipboardItem)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -100,8 +131,12 @@ enum Packet: Equatable {
     private static let revealTag: UInt8 = 10
     private static let revealReplyTag: UInt8 = 11
     private static let rejectTag: UInt8 = 12
+    private static let pingTag: UInt8 = 13
+    private static let pongTag: UInt8 = 14
+    private static let clipboardPortTag: UInt8 = 15
+    private static let clipboardTag: UInt8 = 16
     private static let field = 32
-    private static let mouseSize = 22
+    private static let mouseSize = 23
     private static let keyHeader = 6
     private static let volumeSize = 6
 
@@ -116,7 +151,8 @@ enum Packet: Equatable {
                 dx: Float(bitPattern: data.readLittleEndian(at: 6)),
                 dy: Float(bitPattern: data.readLittleEndian(at: 10)),
                 scrollX: Float(bitPattern: data.readLittleEndian(at: 14)),
-                scrollY: Float(bitPattern: data.readLittleEndian(at: 18))
+                scrollY: Float(bitPattern: data.readLittleEndian(at: 18)),
+                isScrolling: data[data.startIndex + 22] & 1 != 0
             ))
         case Self.keyTag:
             guard data.count >= Self.keyHeader,
@@ -142,9 +178,20 @@ enum Packet: Equatable {
             guard data.count == Self.volumeSize,
                   let kind = GestureEvent.Kind(rawValue: data[data.startIndex + 5]) else { return nil }
             self = .gesture(GestureEvent(seq: data.readLittleEndian(at: 1), kind: kind))
-        case Self.ackTag:
+        case Self.ackTag, Self.pingTag, Self.pongTag:
             guard data.count == 5 else { return nil }
-            self = .ack(data.readLittleEndian(at: 1))
+            let value: UInt32 = data.readLittleEndian(at: 1)
+            switch tag {
+            case Self.ackTag: self = .ack(value)
+            case Self.pingTag: self = .ping(value)
+            default: self = .pong(value)
+            }
+        case Self.clipboardPortTag:
+            guard data.count == 3 else { return nil }
+            self = .clipboardPort(UInt16(data[data.startIndex + 1]) | UInt16(data[data.startIndex + 2]) << 8)
+        case Self.clipboardTag:
+            guard data.count >= 2, let kind = ClipboardItem.Kind(rawValue: data[data.startIndex + 1]) else { return nil }
+            self = .clipboard(ClipboardItem(kind: kind, data: Data(data.dropFirst(2))))
         case Self.helloTag, Self.replyTag:
             guard data.count == 1 + Self.field else { return nil }
             let key = Data(data.suffix(Self.field))
@@ -177,6 +224,7 @@ enum Packet: Equatable {
             for value in [report.dx, report.dy, report.scrollX, report.scrollY] {
                 data.appendLittleEndian(value.bitPattern)
             }
+            data.append(report.isScrolling ? 1 : 0)
         case let .key(event):
             data.append(Self.keyTag)
             data.appendLittleEndian(event.seq)
@@ -197,6 +245,17 @@ enum Packet: Equatable {
         case let .ack(seq):
             data.append(Self.ackTag)
             data.appendLittleEndian(seq)
+        case let .ping(id):
+            data.append(Self.pingTag)
+            data.appendLittleEndian(id)
+        case let .pong(id):
+            data.append(Self.pongTag)
+            data.appendLittleEndian(id)
+        case let .clipboardPort(port):
+            data.append(contentsOf: [Self.clipboardPortTag, UInt8(port & 0xff), UInt8(port >> 8)])
+        case let .clipboard(item):
+            data.append(contentsOf: [Self.clipboardTag, item.kind.rawValue])
+            data.append(item.data)
         case let .pairHello(publicKey):
             data.append(Self.helloTag)
             data.append(publicKey)

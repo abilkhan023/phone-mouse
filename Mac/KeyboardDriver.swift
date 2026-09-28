@@ -71,11 +71,11 @@ final class KeyboardDriver {
     // Synthetic shortcuts such as ⌃Space often miss the input source switcher,
     // so the Mac switches to the next keyboard layout itself.
     private func switchInputSource() {
-        let filter = [
-            kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource,
-            kTISPropertyInputSourceIsSelectCapable: true,
-        ] as CFDictionary
-        guard let list = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource],
+        let filter: [CFString: Any] = [
+            kTISPropertyInputSourceCategory!: kTISCategoryKeyboardInputSource!,
+            kTISPropertyInputSourceIsSelectCapable!: true,
+        ]
+        guard let list = TISCreateInputSourceList(filter as CFDictionary, false)?.takeRetainedValue() as? [TISInputSource],
               list.count > 1,
               let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
         let ids = list.map { sourceID($0) }
@@ -145,7 +145,33 @@ final class KeyboardDriver {
             if !open("/System/Applications/Apps.app") {
                 open("/System/Applications/Launchpad.app")
             }
+        case .lockScreen: press(CGKeyCode(KeyMap.lookup("q")?.code ?? 12), modifiers: [.control, .command])
+        case .forceQuit: press(CGKeyCode(KeyMap.escape), modifiers: [.option, .command])
+        case .emoji: press(CGKeyCode(KeyMap.space), modifiers: [.control, .command])
+        case .screenshot: run("/usr/sbin/screencapture", [screenshotPath()])
+        case .screenshotArea: run("/usr/sbin/screencapture", ["-i", screenshotPath()])
+        case .screenshotTools: open("/System/Applications/Utilities/Screenshot.app")
+        case .displaySleep: run("/usr/bin/pmset", ["displaysleepnow"])
         }
+    }
+
+    // Screenshots are taken by the system tool rather than through ⌘⇧3,
+    // which is a system shortcut that synthetic keys do not always reach.
+    private func screenshotPath() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        let folder = UserDefaults(suiteName: "com.apple.screencapture")?.string(forKey: "location")
+            .map { ($0 as NSString).expandingTildeInPath }
+            ?? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first?.path
+            ?? NSHomeDirectory()
+        return (folder as NSString).appendingPathComponent("Screenshot \(formatter.string(from: Date())).png")
+    }
+
+    private func run(_ tool: String, _ arguments: [String]) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: tool)
+        process.arguments = arguments
+        try? process.run()
     }
 
     @discardableResult

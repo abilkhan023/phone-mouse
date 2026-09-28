@@ -20,6 +20,18 @@ final class CursorDriver {
     private var lastArrival: TimeInterval = 0
     private var lastTick: TimeInterval = 0
     private var timer: Timer?
+    private var isScrolling = false
+    private var scrollBegan = false
+    private var recentScroll: [(time: TimeInterval, delta: CGSize)] = []
+    private var velocity = CGSize.zero
+    private var momentumTimer: Timer?
+    private var momentumStarted = false
+    private var lastMomentumTick: TimeInterval = 0
+    private let velocityWindow = 0.1
+    private let momentumDecay = 0.33
+    private let momentumFloor = 15.0
+    private let momentumStart = 60.0
+    private let momentumRate = 1.0 / 120
     // Modifiers held on the phone, so ⌘-click and ⌥-drag work.
     var flags = CGEventFlags()
 
@@ -31,13 +43,102 @@ final class CursorDriver {
             flush()
         }
         setButtons(report.buttons)
-        scroll(dx: CGFloat(report.scrollX), dy: CGFloat(report.scrollY))
+        if report.isScrolling || isScrolling {
+            touchScroll(dx: CGFloat(report.scrollX), dy: CGFloat(report.scrollY), active: report.isScrolling)
+        } else {
+            scroll(dx: CGFloat(report.scrollX), dy: CGFloat(report.scrollY))
+        }
         startSmoothing()
     }
 
     func releaseButtons() {
         flush()
         setButtons([])
+        if isScrolling {
+            touchScroll(dx: 0, dy: 0, active: false)
+        }
+    }
+
+    // Scrolling with fingers on the touchpad is posted with the phases of a
+    // real trackpad, so apps show their rubber band and swipe back works, and
+    // after the fingers lift the page glides on and slows down.
+    private func touchScroll(dx: CGFloat, dy: CGFloat, active: Bool) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if active {
+            if !isScrolling {
+                stopMomentum()
+                isScrolling = true
+                scrollBegan = false
+                recentScroll = []
+                scrollRemainder = .zero
+            }
+            recentScroll.append((now, CGSize(width: dx, height: dy)))
+            recentScroll.removeAll { now - $0.time > velocityWindow }
+            guard dx != 0 || dy != 0 else { return }
+            postScroll(dx: dx, dy: dy, phase: scrollBegan ? 2 : 1, momentum: 0)
+            scrollBegan = true
+            return
+        }
+        isScrolling = false
+        guard scrollBegan else { return }
+        postScroll(dx: 0, dy: 0, phase: 4, momentum: 0)
+        recentScroll.removeAll { now - $0.time > velocityWindow }
+        let total = recentScroll.reduce(CGSize.zero) { CGSize(width: $0.width + $1.delta.width, height: $0.height + $1.delta.height) }
+        velocity = CGSize(width: total.width / velocityWindow, height: total.height / velocityWindow)
+        if hypot(velocity.width, velocity.height) > momentumStart {
+            startMomentum()
+        }
+    }
+
+    private func startMomentum() {
+        momentumStarted = false
+        lastMomentumTick = ProcessInfo.processInfo.systemUptime
+        let timer = Timer(timeInterval: momentumRate, repeats: true) { [weak self] _ in self?.glide() }
+        RunLoop.main.add(timer, forMode: .common)
+        momentumTimer = timer
+    }
+
+    private func glide() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let dt = now - lastMomentumTick
+        lastMomentumTick = now
+        let fade = CGFloat(exp(-dt / momentumDecay))
+        velocity = CGSize(width: velocity.width * fade, height: velocity.height * fade)
+        guard hypot(velocity.width, velocity.height) > momentumFloor else {
+            stopMomentum()
+            return
+        }
+        postScroll(dx: velocity.width * dt, dy: velocity.height * dt, phase: 0, momentum: momentumStarted ? 2 : 1)
+        momentumStarted = true
+    }
+
+    private func stopMomentum() {
+        guard let momentumTimer else { return }
+        momentumTimer.invalidate()
+        self.momentumTimer = nil
+        if momentumStarted {
+            postScroll(dx: 0, dy: 0, phase: 0, momentum: 3)
+        }
+        momentumStarted = false
+    }
+
+    private func postScroll(dx: CGFloat, dy: CGFloat, phase: Int64, momentum: Int64) {
+        scrollRemainder.width += dx
+        scrollRemainder.height += dy
+        let x = Int32(scrollRemainder.width.rounded(.towardZero))
+        let y = Int32(scrollRemainder.height.rounded(.towardZero))
+        let edge = phase == 1 || phase == 4 || momentum == 1 || momentum == 3
+        guard x != 0 || y != 0 || edge else { return }
+        scrollRemainder.width -= CGFloat(x)
+        scrollRemainder.height -= CGFloat(y)
+        guard let event = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0) else { return }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+        event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
+        if !flags.isEmpty {
+            event.flags = flags
+        }
+        event.post(tap: .cghidEventTap)
     }
 
     // Over Wi-Fi reports arrive in bursts. Movement is queued and let out at

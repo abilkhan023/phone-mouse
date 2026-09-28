@@ -39,6 +39,7 @@ the Mac is about 5 ms.
 | In air | Hold the phone and point it at the screen | The gyroscope |
 | On desk | Lay the phone flat and slide it like a mouse | The accelerometer and gyroscope |
 | Touchpad | Drag a finger across the screen | The touch screen |
+| Remote | Media keys, slides and quick actions | The gyroscope, for the laser pointer |
 
 **In air.** Turn your wrist left and right or up and down to move the cursor.
 This is the most precise of the two motion modes: a gyroscope measures rotation
@@ -55,6 +56,24 @@ moment.
 click, drag with two fingers to scroll. Two buttons under the pad are there for
 dragging. The keyboard button between them opens the iPhone keyboard: what you
 type is sent to the Mac and echoed on the phone.
+
+Scrolling on the touchpad behaves like a Mac trackpad: the page bounces at the
+edges, two fingers sideways go back and forward in Safari and Finder, and after
+the fingers lift the page glides on and slows down.
+
+**Remote.** Three pages. Media: play, pause, tracks, volume and brightness.
+Slides: big previous and next buttons, the volume buttons turn slides like a
+presenter clicker, and holding the pointer button steers the cursor with the
+phone as a laser pointer. Actions: lock the screen, sleep the display,
+screenshots, Mission Control, show the desktop, Apps, emoji, force quit, and
+sending the clipboard.
+
+**Clipboard.** Text and images copied on the Mac show up on the phone's
+clipboard. To send the phone's clipboard to the Mac, tap the paste button in
+the key row or on the Actions page; iOS asks for permission every time an app
+reads the clipboard on its own, but not through that button. The clipboard
+travels over its own TCP connection, encrypted like everything else, up to
+20 MB. It can be turned off in the Mac's menu.
 
 **Gestures.** The touchpad also knows the Mac trackpad gestures. macOS has no
 public way to post real gestures, so each one runs the system action it stands
@@ -110,6 +129,13 @@ one, and after five the window has to be opened again.
 The phone's glow lights up only while the Mac answers, which only a Mac with the
 same key can do.
 
+## Settings and several Macs
+
+The name at the top left opens a menu: switch between paired Macs, pair
+another one, forget one, and open settings for pointer and scroll speed,
+natural scrolling, and the line under the name that shows how the phone reaches
+the Mac (Wi-Fi, Wi-Fi direct or cable) and the delay in milliseconds.
+
 ## Requirements
 
 - iPhone with iOS 17 or later
@@ -117,6 +143,13 @@ same key can do.
 - Xcode 16 or later
 
 ## Build and run
+
+With the iPhone connected and both targets signed, `scripts/deploy.sh` builds
+everything, installs the app on the phone and the companion in Applications,
+and starts it. Installed there, the companion opens at login; the menu has a
+switch for that.
+
+Or by hand:
 
 1. Open `PhoneMouse.xcodeproj` in Xcode.
 2. For both targets, choose your own team under Signing & Capabilities. Change

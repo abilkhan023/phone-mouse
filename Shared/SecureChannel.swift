@@ -102,32 +102,58 @@ struct Pairing: Equatable {
 
 enum PairingStore {
     private static let service = "PhoneMouse.pairing"
+    private static let listService = "PhoneMouse.pairings"
 
+    // The Mac keeps one pairing.
     static func load() -> Pairing? {
+        read(service).flatMap { Pairing(code: String(decoding: $0, as: UTF8.self)) }
+    }
+
+    static func save(_ pairing: Pairing) {
+        write(service, Data(pairing.code.utf8))
+    }
+
+    static func clear() {
+        delete(service)
+    }
+
+    // The phone keeps one per Mac, the preferred one first. A single pairing
+    // from before is taken over.
+    static func loadAll() -> [Pairing] {
+        if let data = read(listService), let codes = try? JSONDecoder().decode([String].self, from: data) {
+            return codes.compactMap(Pairing.init(code:))
+        }
+        return load().map { [$0] } ?? []
+    }
+
+    static func saveAll(_ pairings: [Pairing]) {
+        guard let data = try? JSONEncoder().encode(pairings.map(\.code)) else { return }
+        write(listService, data)
+    }
+
+    private static func read(_ service: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecReturnData as String: true,
         ]
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let code = String(data: data, encoding: .utf8) else { return nil }
-        return Pairing(code: code)
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
     }
 
-    static func save(_ pairing: Pairing) {
-        clear()
+    private static func write(_ service: String, _ data: Data) {
+        delete(service)
         let item: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            kSecValueData as String: Data(pairing.code.utf8),
+            kSecValueData as String: data,
         ]
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    static func clear() {
+    private static func delete(_ service: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

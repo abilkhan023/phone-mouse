@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Network
 import Observation
+import ServiceManagement
 
 @Observable
 final class HostController {
@@ -14,6 +15,10 @@ final class HostController {
     // window is closed or after too many wrong tries.
     private(set) var pairingCode: String?
     let needsPairing: Bool
+    var syncsClipboard = UserDefaults.standard.object(forKey: HostController.clipboardKey) as? Bool ?? true {
+        didSet { UserDefaults.standard.set(syncsClipboard, forKey: Self.clipboardKey) }
+    }
+    private(set) var opensAtLogin = SMAppService.mainApp.status == .enabled
 
     @ObservationIgnored private var listener: NWListener?
     @ObservationIgnored private var connection: NWConnection?
@@ -29,6 +34,10 @@ final class HostController {
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
     @ObservationIgnored private var offers: [ObjectIdentifier: Offer] = [:]
     @ObservationIgnored private var wrongCodes = 0
+    @ObservationIgnored private var clipListener: NWListener?
+    @ObservationIgnored private var clipStream: ClipboardStream?
+    @ObservationIgnored private var clipPending: [ClipboardStream] = []
+    @ObservationIgnored private var pasteboardCount = NSPasteboard.general.changeCount
 
     private struct Offer {
         let privateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -55,6 +64,7 @@ final class HostController {
     private let wrongCodeLimit = 5
     private let keyWindow: Int32 = 1000
     private static let counterKey = "lastCounter"
+    private static let clipboardKey = "syncsClipboard"
 
     init() {
         let pairing: Pairing
@@ -70,7 +80,9 @@ final class HostController {
         channel = SecureChannel(key: pairing.key)
         lastCounter = UInt64(UserDefaults.standard.string(forKey: Self.counterKey) ?? "") ?? 0
         savedCounter = lastCounter
+        enableLoginOnce()
         startListener()
+        startClipboardListener()
         startWatchdog()
         if !isTrusted {
             requestAccess()
@@ -105,6 +117,26 @@ final class HostController {
         self.pairing = pairing
         PairingStore.save(pairing)
         channel = SecureChannel(key: pairing.key)
+        clipStream?.close()
+        clipPending.forEach { $0.close() }
+    }
+
+    // Installed in Applications, the companion opens at login unless the
+    // user turned that off; it is useless when it is not running.
+    private func enableLoginOnce() {
+        let key = "loginItemOffered"
+        guard Bundle.main.bundlePath.hasPrefix("/Applications/"), !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        setOpensAtLogin(true)
+    }
+
+    func setOpensAtLogin(_ enabled: Bool) {
+        if enabled {
+            try? SMAppService.mainApp.register()
+        } else {
+            try? SMAppService.mainApp.unregister()
+        }
+        opensAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     private static var serviceName: String {
@@ -125,6 +157,84 @@ final class HostController {
         listener.newConnectionHandler = { [weak self] in self?.accept($0) }
         listener.start(queue: .main)
         self.listener = listener
+    }
+
+    // The clipboard has its own TCP listener; its port reaches the phone in
+    // the heartbeat.
+    private func startClipboardListener() {
+        let parameters = NWParameters.tcp
+        parameters.includePeerToPeer = true
+        guard let listener = try? NWListener(using: parameters) else { return }
+        listener.newConnectionHandler = { [weak self] in self?.acceptClipboard($0) }
+        listener.start(queue: .main)
+        clipListener = listener
+    }
+
+    private func acceptClipboard(_ connection: NWConnection) {
+        let stream = ClipboardStream(connection: connection, channel: channel, receivesFrom: .phone) { [weak self] packet in
+            guard let self else { return nil }
+            self.sendCounter = SecureChannel.counter(after: self.sendCounter)
+            return self.channel.seal(packet, counter: self.sendCounter, from: .mac)
+        }
+        stream.onPacket = { [weak self, weak stream] packet in
+            guard let self, let stream else { return }
+            if stream !== self.clipStream {
+                self.clipPending.removeAll { $0 === stream }
+                self.clipStream?.close()
+                self.clipStream = stream
+            }
+            if case let .clipboard(item) = packet {
+                self.paste(item)
+            }
+        }
+        stream.onClose = { [weak self, weak stream] in
+            guard let self else { return }
+            self.clipPending.removeAll { $0 === stream }
+            if self.clipStream === stream {
+                self.clipStream = nil
+            }
+        }
+        clipPending.append(stream)
+        if clipPending.count > pendingLimit {
+            clipPending.removeFirst().close()
+        }
+    }
+
+    private func paste(_ item: ClipboardItem) {
+        guard syncsClipboard else { return }
+        let board = NSPasteboard.general
+        board.clearContents()
+        switch item.kind {
+        case .text:
+            board.setString(String(decoding: item.data, as: UTF8.self), forType: .string)
+        case .png:
+            board.setData(item.data, forType: .png)
+            if let image = NSImage(data: item.data), let tiff = image.tiffRepresentation {
+                board.setData(tiff, forType: .tiff)
+            }
+        }
+        pasteboardCount = board.changeCount
+    }
+
+    // Whatever is copied on the Mac goes to the phone: an image if there is
+    // one, otherwise text.
+    private func checkPasteboard() {
+        let board = NSPasteboard.general
+        guard board.changeCount != pasteboardCount else { return }
+        guard syncsClipboard else {
+            pasteboardCount = board.changeCount
+            return
+        }
+        guard let clipStream else { return }
+        pasteboardCount = board.changeCount
+        if let image = NSImage(pasteboard: board),
+           let tiff = image.tiffRepresentation,
+           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]),
+           png.count <= ClipboardItem.sizeLimit {
+            clipStream.send(.clipboard(ClipboardItem(kind: .png, data: png)))
+        } else if let text = board.string(forType: .string) {
+            clipStream.send(.clipboard(ClipboardItem(kind: .text, data: Data(text.utf8.prefix(ClipboardItem.sizeLimit)))))
+        }
     }
 
     private func startWatchdog() {
@@ -173,6 +283,7 @@ final class HostController {
             case let .key(event): handle(event)
             case let .volume(event): handle(event)
             case let .gesture(event): handle(event)
+            case let .ping(id): send(.pong(id), on: connection)
             default: break
             }
             return
@@ -350,7 +461,11 @@ final class HostController {
         }
         if isClientActive, let connection {
             send(.ack(lastKeySeq ?? 0), on: connection)
+            if let port = clipListener?.port?.rawValue {
+                send(.clipboardPort(port), on: connection)
+            }
         }
+        checkPasteboard()
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }
         isClientActive = false
         driver.releaseButtons()
