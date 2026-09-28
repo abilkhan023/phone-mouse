@@ -305,7 +305,9 @@ final class MouseController {
 
     func point(atX x: Double, y: Double, click: Bool) {
         link.sendReliably(.pointAt(x: Float(x), y: Float(y), click: click))
-        haptics.impactOccurred(intensity: click ? 0.8 : 0.4)
+        if click {
+            haptics.impactOccurred(intensity: 0.8)
+        }
     }
 
     // Double tap and drag on the touchpad holds the button down while the

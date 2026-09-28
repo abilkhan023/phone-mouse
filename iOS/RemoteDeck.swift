@@ -164,17 +164,22 @@ private struct AppsPad: View {
     }
 }
 
-// A live picture of the Mac's main display. A tap points there, and clicks
-// unless that is switched off.
+// A live picture of the Mac's main display. A tap clicks at that spot, two
+// taps double-click, and a finger sliding over it leads the cursor without
+// clicking.
 private struct ScreenPad: View {
     let controller: MouseController
-    @State private var clicks = true
+    @State private var sliding = false
+    @State private var lastPointAt = Date.distantPast
+
+    private let slop: CGFloat = 8
+    private let pointInterval = 1.0 / 30
 
     var body: some View {
-        VStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
-                if let image = controller.screenImage {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
+            if let image = controller.screenImage {
+                VStack(spacing: 8) {
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -182,33 +187,53 @@ private struct ScreenPad: View {
                             GeometryReader { box in
                                 Color.clear
                                     .contentShape(Rectangle())
-                                    .gesture(SpatialTapGesture().onEnded { tap in
-                                        controller.point(
-                                            atX: tap.location.x / box.size.width,
-                                            y: tap.location.y / box.size.height,
-                                            click: clicks
-                                        )
-                                    })
+                                    .gesture(pointing(in: box.size))
                             }
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(6)
-                } else {
-                    Text("Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.")
-                        .font(.marking(14))
+                    Text("Tap to click there · slide a finger to move the cursor")
+                        .font(.marking(12))
                         .foregroundStyle(Palette.ink.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .padding(24)
                 }
+                .padding(6)
+            } else {
+                Text("Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.")
+                    .font(.marking(14))
+                    .foregroundStyle(Palette.ink.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(24)
             }
-            Picker("A tap", selection: $clicks) {
-                Text("Tap moves and clicks").tag(true)
-                Text("Tap only moves").tag(false)
-            }
-            .pickerStyle(.segmented)
         }
         .onAppear { controller.watchScreen(true) }
         .onDisappear { controller.watchScreen(false) }
+    }
+
+    private func pointing(in size: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { drag in
+                if !sliding, hypot(drag.translation.width, drag.translation.height) > slop {
+                    sliding = true
+                }
+                guard sliding, Date().timeIntervalSince(lastPointAt) > pointInterval else { return }
+                lastPointAt = Date()
+                point(drag.location, in: size, click: false)
+            }
+            .onEnded { drag in
+                if sliding {
+                    point(drag.location, in: size, click: false)
+                } else {
+                    point(drag.location, in: size, click: true)
+                }
+                sliding = false
+            }
+    }
+
+    private func point(_ location: CGPoint, in size: CGSize, click: Bool) {
+        controller.point(
+            atX: min(max(location.x / size.width, 0), 1),
+            y: min(max(location.y / size.height, 0), 1),
+            click: click
+        )
     }
 }
 
