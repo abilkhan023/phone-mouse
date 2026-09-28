@@ -38,6 +38,10 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 8)
                         .padding(.bottom, keyboardHeight)
+                    } else if controller.dictation.isListening {
+                        DictationPanel(text: controller.dictation.text)
+                            .frame(height: 76)
+                            .padding(.bottom, insets.bottom)
                     } else if controller.mode == .remote {
                         Color.clear
                             .frame(height: 24)
@@ -181,11 +185,16 @@ extension StatusBar {
         }
     }
 
-    // How the phone reaches the Mac and how long a report takes.
+    // What is open on the Mac, how the phone reaches it and how long a report
+    // takes.
     private var detail: String? {
-        guard controller.settings.showsLatency, controller.isLinked else { return nil }
-        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }]
-        let text = parts.compactMap { $0 }.joined(separator: " · ")
+        guard controller.isLinked else { return nil }
+        guard controller.settings.showsLatency else {
+            return controller.frontApp.map { $0.title.isEmpty ? $0.name : "\($0.name) — \($0.title)" }
+        }
+        let app = controller.frontApp.map { $0.title.isEmpty ? $0.name : "\($0.name) — \($0.title)" }
+        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }, app]
+        let text = parts.compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return text.isEmpty ? nil : text
     }
 }
@@ -215,6 +224,55 @@ struct ModeSwitch: View {
         .background(Palette.groove.opacity(0.5), in: Capsule())
         .fixedSize()
         .animation(.snappy(duration: 0.2), value: mode)
+    }
+}
+
+struct MicButton: View {
+    let controller: MouseController
+    let corner: CGFloat
+
+    var body: some View {
+        let listening = controller.dictation.isListening
+        Button { controller.toggleDictation() } label: {
+            Image(systemName: listening ? "mic.fill" : "mic")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(listening ? Palette.shellBottom : Palette.ink)
+                .symbolEffect(.pulse, isActive: listening)
+                .frame(width: 64)
+                .frame(maxHeight: .infinity)
+                .background(listening ? Palette.led : Palette.pressed, in: RoundedRectangle(cornerRadius: corner))
+                .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(listening ? "Stop dictation" : "Dictate")
+        .onChange(of: controller.dictation.problem) { _, problem in
+            switch problem {
+            case .denied?: controller.announce("Allow the microphone and speech recognition in Settings")
+            case .unavailable?: controller.announce("Dictation is not available right now")
+            case nil: break
+            }
+        }
+    }
+}
+
+struct DictationPanel: View {
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(text.isEmpty ? "Listening… speak, and it is typed on the Mac" : text)
+                .font(.marking(15))
+                .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.6 : 1))
+                .lineLimit(2)
+                .truncationMode(.head)
+                .multilineTextAlignment(.center)
+            Text("Tap the microphone to stop")
+                .font(.marking(12))
+                .foregroundStyle(Palette.ink.opacity(0.5))
+        }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
     }
 }
 
@@ -518,8 +576,8 @@ struct ButtonDeck: View {
                 .frame(width: 60, height: 210)
                 .padding(.top, 84)
         }
-        .onChange(of: leftPressed) { _, value in controller.setButton(.left, pressed: value) }
-        .onChange(of: rightPressed) { _, value in controller.setButton(.right, pressed: value) }
+        .onChange(of: leftPressed) { _, value in controller.setPad(left: true, pressed: value) }
+        .onChange(of: rightPressed) { _, value in controller.setPad(left: false, pressed: value) }
     }
 
     private func pad(_ side: DeckHalf.Side, pressed: GestureState<Bool>, label: String) -> some View {
@@ -571,6 +629,7 @@ struct TouchpadDeck: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isTyping ? "Hide keyboard" : "Show keyboard")
+                MicButton(controller: controller, corner: corner)
                 key(isPressed: rightPressed, pressed: $rightPressed, label: "Right button")
             }
             .frame(height: isTyping ? 56 : 88)
@@ -581,8 +640,8 @@ struct TouchpadDeck: View {
                 .frame(width: 1, height: 1)
                 .opacity(0)
         )
-        .onChange(of: leftPressed) { _, value in controller.setButton(.left, pressed: value) }
-        .onChange(of: rightPressed) { _, value in controller.setButton(.right, pressed: value) }
+        .onChange(of: leftPressed) { _, value in controller.setPad(left: true, pressed: value) }
+        .onChange(of: rightPressed) { _, value in controller.setPad(left: false, pressed: value) }
     }
 
     private func key(isPressed: Bool, pressed: GestureState<Bool>, label: String) -> some View {

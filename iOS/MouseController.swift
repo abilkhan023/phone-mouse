@@ -70,10 +70,13 @@ final class MouseController {
     // Half the round trip to the Mac, in milliseconds.
     private(set) var latency: Double?
     private(set) var notice: String?
+    // What is open on the Mac right now.
+    private(set) var frontApp: FrontApp?
     var remoteTab: RemoteTab {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
     let settings = Settings()
+    let dictation = Dictation()
     // Latched by a tap, for the next key only.
     private(set) var modifiers: KeyModifiers = []
     // Held down by a finger on the key, and down on the Mac too.
@@ -108,6 +111,8 @@ final class MouseController {
     @ObservationIgnored private var desk = DeskTracker()
     @ObservationIgnored private var air = AirPointer()
     @ObservationIgnored private var touchScrolling = false
+    // What dictation has typed on the Mac in this session.
+    @ObservationIgnored private var dictated = ""
     @ObservationIgnored private var laserHeld = false
     @ObservationIgnored private var pingID: UInt32 = 0
     @ObservationIgnored private var pingSentAt: [UInt32: TimeInterval] = [:]
@@ -159,6 +164,7 @@ final class MouseController {
         link.onRouteChange = { [weak self] in self?.route = $0 }
         link.onPacket = { [weak self] in self?.received($0) }
         volumeKeys.onPress = { [weak self] in self?.changeVolume($0) }
+        dictation.onText = { [weak self] in self?.dictate($0) }
     }
 
     func start() {
@@ -185,6 +191,7 @@ final class MouseController {
         buttons = []
         send(motion: nil)
         releaseAllModifiers()
+        dictation.stop()
         link.stop()
         setLinked(false)
         cancelCodePairing()
@@ -254,6 +261,10 @@ final class MouseController {
         show(link.sendClipboard(item) ? "Sent to the Mac clipboard" : "Not connected to a Mac yet")
     }
 
+    func announce(_ text: String) {
+        show(text)
+    }
+
     private func show(_ text: String) {
         notice = text
         noticeTimer?.invalidate()
@@ -276,6 +287,7 @@ final class MouseController {
     // The pairing screen covers the touchpad, so its keyboard goes away.
     func showPairing() {
         isTyping = false
+        dictation.stop()
         releaseAllModifiers()
         isPairing = true
     }
@@ -337,6 +349,43 @@ final class MouseController {
         freeze()
         haptics.impactOccurred(intensity: pressed ? 1 : 0.5)
         send(motion: nil)
+    }
+
+    // The on-screen buttons by where they sit; left-handed use swaps them.
+    func setPad(left: Bool, pressed: Bool) {
+        setButton(left != settings.leftHanded ? .left : .right, pressed: pressed)
+    }
+
+    func toggleDictation() {
+        if dictation.isListening {
+            dictation.stop()
+        } else {
+            dictated = ""
+            dictation.start(language: settings.dictationLanguage)
+        }
+        haptics.impactOccurred(intensity: 0.7)
+    }
+
+    // Typed on the Mac as it is heard. When the recognizer revises its last
+    // words, the changed tail is erased and typed again.
+    private func dictate(_ full: String) {
+        let old = Array(dictated)
+        let new = Array(full)
+        var common = 0
+        while common < old.count, common < new.count, old[common] == new[common] {
+            common += 1
+        }
+        let erase = old.count - common
+        if erase > 0 {
+            typed = String(typed.dropLast(erase))
+            queue(KeyEvent(seq: 0, kind: .backspace, text: String(erase)))
+        }
+        if common < new.count {
+            let added = String(new[common...])
+            typed = String((typed + added).suffix(typedLimit))
+            queue(KeyEvent(seq: 0, kind: .text, text: added))
+        }
+        dictated = full
     }
 
     func click(_ button: MouseButtons) {
@@ -443,6 +492,13 @@ final class MouseController {
         case let .clipboard(item):
             receiveClipboard(item)
             return
+        case let .frontApp(app):
+            let switched = app.bundleID != frontApp?.bundleID
+            frontApp = app
+            if switched, mode == .remote, let tab = Self.remoteTab(for: app) {
+                remoteTab = tab
+            }
+            return
         case let .pong(id):
             guard let sentAt = pingSentAt.removeValue(forKey: id) else { return }
             let sample = (ProcessInfo.processInfo.systemUptime - sentAt) * 500
@@ -457,9 +513,28 @@ final class MouseController {
         unsentKeys.removeAll { Int32(bitPattern: seq &- $0.seq) >= 0 }
     }
 
+    // The remote page that suits the app in front: slides for presentations,
+    // media for players and for YouTube in a browser.
+    private static func remoteTab(for app: FrontApp) -> RemoteTab? {
+        let slides = ["com.apple.iWork.Keynote", "com.microsoft.Powerpoint"]
+        let media = ["com.apple.Music", "com.spotify.client", "com.apple.TV", "com.apple.QuickTimePlayerX",
+                     "org.videolan.vlc", "com.apple.podcasts", "com.colliderli.iina", "com.yandex.music"]
+        let title = app.title.lowercased()
+        if slides.contains(app.bundleID) || title.contains("google slides") || title.contains("google презентации") {
+            return .slides
+        }
+        if media.contains(app.bundleID) || title.contains("youtube") {
+            return .media
+        }
+        return nil
+    }
+
     private func setLinked(_ linked: Bool) {
         guard linked != isLinked else { return }
         isLinked = linked
+        if !linked {
+            frontApp = nil
+        }
         if linked {
             volumeKeys.start()
         } else {

@@ -221,6 +221,17 @@ struct SettingsView: View {
                     Text("Content follows your fingers, as on a Mac trackpad.")
                 }
                 Section {
+                    Toggle("Left-handed", isOn: $settings.leftHanded)
+                } footer: {
+                    Text("Swaps the left and right mouse buttons on the screen.")
+                }
+                Section {
+                    Picker("Dictation language", selection: $settings.dictationLanguage) {
+                        Text("Same as the phone").tag("")
+                        ForEach(Dictation.languages, id: \.id) { Text($0.name).tag($0.id) }
+                    }
+                }
+                Section {
                     Toggle("Show connection and delay", isOn: $settings.showsLatency)
                 }
             }

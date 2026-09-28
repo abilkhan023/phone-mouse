@@ -35,6 +35,8 @@ final class HostController {
     @ObservationIgnored private var offers: [ObjectIdentifier: Offer] = [:]
     @ObservationIgnored private var wrongCodes = 0
     @ObservationIgnored private var lastHeartbeatAt: TimeInterval = 0
+    @ObservationIgnored private var frontApp: FrontApp?
+    @ObservationIgnored private var frontAppSentAt: TimeInterval = 0
     // Keeps macOS from napping the companion in the background, which would
     // delay its timers: the heartbeat, and the cursor smoothing.
     @ObservationIgnored private let activity = ProcessInfo.processInfo.beginActivity(
@@ -243,6 +245,33 @@ final class HostController {
         } else if let text = board.string(forType: .string) {
             clipStream.send(.clipboard(ClipboardItem(kind: .text, data: Data(text.utf8.prefix(ClipboardItem.sizeLimit)))))
         }
+    }
+
+    // The phone shows what is open on the Mac. The window title needs the
+    // accessibility permission the companion has anyway. Sent on a change,
+    // and again now and then in case it got lost.
+    private func reportFrontApp() {
+        guard let connection, let app = NSWorkspace.shared.frontmostApplication else { return }
+        let current = FrontApp(
+            bundleID: app.bundleIdentifier ?? "",
+            name: app.localizedName ?? "",
+            title: windowTitle(of: app.processIdentifier) ?? ""
+        )
+        let now = ProcessInfo.processInfo.systemUptime
+        guard current != frontApp || now - frontAppSentAt > 2 else { return }
+        frontApp = current
+        frontAppSentAt = now
+        send(.frontApp(current), on: connection)
+    }
+
+    private func windowTitle(of pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        var window: AnyObject?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &window) == .success,
+              let window, CFGetTypeID(window) == AXUIElementGetTypeID() else { return nil }
+        var title: AnyObject?
+        guard AXUIElementCopyAttributeValue(window as! AXUIElement, kAXTitleAttribute as CFString, &title) == .success else { return nil }
+        return title as? String
     }
 
     private func startWatchdog() {
@@ -483,6 +512,7 @@ final class HostController {
         }
         if isClientActive {
             heartbeat()
+            reportFrontApp()
         }
         checkPasteboard()
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }

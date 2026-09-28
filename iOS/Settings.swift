@@ -8,6 +8,11 @@ final class Settings {
     // Content follows the fingers, as on a Mac with its default setting.
     var naturalScrolling: Bool { didSet { save(naturalScrolling, Self.naturalKey) } }
     var showsLatency: Bool { didSet { save(showsLatency, Self.latencyKey) } }
+    // Swaps the two mouse buttons on screen, like the Mac's setting for
+    // left-handed use.
+    var leftHanded: Bool { didSet { save(leftHanded, Self.leftHandedKey) } }
+    // Empty means the phone's language.
+    var dictationLanguage: String { didSet { save(dictationLanguage, Self.dictationKey) } }
 
     static let speedRange = 0.4...2.5
 
@@ -15,6 +20,8 @@ final class Settings {
     private static let scrollKey = "scrollSpeed"
     private static let naturalKey = "naturalScrolling"
     private static let latencyKey = "showsLatency"
+    private static let leftHandedKey = "leftHanded"
+    private static let dictationKey = "dictationLanguage"
 
     init() {
         let defaults = UserDefaults.standard
@@ -22,6 +29,8 @@ final class Settings {
         scrollSpeed = defaults.object(forKey: Self.scrollKey) as? Double ?? 1
         naturalScrolling = defaults.object(forKey: Self.naturalKey) as? Bool ?? true
         showsLatency = defaults.object(forKey: Self.latencyKey) as? Bool ?? true
+        leftHanded = defaults.bool(forKey: Self.leftHandedKey)
+        dictationLanguage = defaults.string(forKey: Self.dictationKey) ?? ""
     }
 
     private func save(_ value: Any, _ key: String) {

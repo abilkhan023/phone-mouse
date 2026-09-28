@@ -83,6 +83,15 @@ struct GestureEvent: Equatable {
     var kind: Kind
 }
 
+struct FrontApp: Equatable {
+    static let separator = "\u{1F}"
+    static let titleLimit = 160
+
+    var bundleID: String
+    var name: String
+    var title: String
+}
+
 struct ClipboardItem: Equatable {
     enum Kind: UInt8 {
         case text
@@ -110,6 +119,8 @@ enum Packet: Equatable {
     // can be megabytes.
     case clipboardPort(UInt16)
     case clipboard(ClipboardItem)
+    // The app in front on the Mac and the title of its window.
+    case frontApp(FrontApp)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -135,6 +146,7 @@ enum Packet: Equatable {
     private static let pongTag: UInt8 = 14
     private static let clipboardPortTag: UInt8 = 15
     private static let clipboardTag: UInt8 = 16
+    private static let frontAppTag: UInt8 = 17
     private static let field = 32
     private static let mouseSize = 23
     private static let keyHeader = 6
@@ -189,6 +201,10 @@ enum Packet: Equatable {
         case Self.clipboardPortTag:
             guard data.count == 3 else { return nil }
             self = .clipboardPort(UInt16(data[data.startIndex + 1]) | UInt16(data[data.startIndex + 2]) << 8)
+        case Self.frontAppTag:
+            let fields = String(decoding: data.dropFirst(), as: UTF8.self).components(separatedBy: FrontApp.separator)
+            guard fields.count == 3 else { return nil }
+            self = .frontApp(FrontApp(bundleID: fields[0], name: fields[1], title: fields[2]))
         case Self.clipboardTag:
             guard data.count >= 2, let kind = ClipboardItem.Kind(rawValue: data[data.startIndex + 1]) else { return nil }
             self = .clipboard(ClipboardItem(kind: kind, data: Data(data.dropFirst(2))))
@@ -253,6 +269,10 @@ enum Packet: Equatable {
             data.appendLittleEndian(id)
         case let .clipboardPort(port):
             data.append(contentsOf: [Self.clipboardPortTag, UInt8(port & 0xff), UInt8(port >> 8)])
+        case let .frontApp(app):
+            data.append(Self.frontAppTag)
+            data.append(contentsOf: [app.bundleID, app.name, String(app.title.prefix(FrontApp.titleLimit))]
+                .joined(separator: FrontApp.separator).utf8)
         case let .clipboard(item):
             data.append(contentsOf: [Self.clipboardTag, item.kind.rawValue])
             data.append(item.data)

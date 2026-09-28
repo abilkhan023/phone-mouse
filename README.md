@@ -89,6 +89,11 @@ for through its default shortcut.
 | Tap with three fingers | Look Up |
 | Pinch with two fingers | Zoom in or out |
 
+**Dictation.** The microphone button under the touchpad types what you say on
+the Mac as it is heard, with punctuation; when the phone revises a word, the
+Mac corrects it. Recognition runs on the phone where it can. The language is in
+settings.
+
 **Keyboard.** Above the iPhone keyboard sits a row of Mac keys that iOS lacks:
 fn, esc, tab, forward delete, home, end, page up and down, the top row, the
 arrows, and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘
@@ -133,8 +138,13 @@ same key can do.
 
 The name at the top left opens a menu: switch between paired Macs, pair
 another one, forget one, and open settings for pointer and scroll speed,
-natural scrolling, and the line under the name that shows how the phone reaches
-the Mac (Wi-Fi, Wi-Fi direct or cable) and the delay in milliseconds.
+natural scrolling, left-handed buttons, the dictation language, and the line
+under the name that shows how the phone reaches the Mac (Wi-Fi, Wi-Fi direct or
+cable) and the delay in milliseconds.
+
+That line also shows what is open on the Mac: the app in front and the title
+of its window. In the remote, a presentation app switches to Slides by itself,
+and a music or video player, or YouTube in a browser, to Media.
 
 ## Requirements
 
