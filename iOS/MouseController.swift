@@ -169,6 +169,8 @@ final class MouseController {
         pairings = PairingStore.loadAll()
         isPairing = pairings.isEmpty
         link.pairings = pairings
+        link.preference = settings.connection
+        settings.onConnectionChange = { [weak self] in self?.link.preference = $0 }
         link.onHostChange = { [weak self] in
             self?.hostName = $0
             self?.latency = nil

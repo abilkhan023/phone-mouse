@@ -360,7 +360,14 @@ struct SettingsView: View {
                     }
                 }
                 Section {
+                    Picker("Connection", selection: $settings.connection) {
+                        Text("Automatic").tag(HostLink.Preference.automatic)
+                        Text("Cable only").tag(HostLink.Preference.cable)
+                        Text("Wi-Fi only").tag(HostLink.Preference.wifi)
+                    }
                     Toggle("Show connection and delay", isOn: $settings.showsLatency)
+                } footer: {
+                    Text("Automatic uses a cable when one is plugged in and the Mac answers over it, and Wi-Fi otherwise.")
                 }
             }
             .navigationTitle("Settings")

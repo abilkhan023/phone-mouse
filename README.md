@@ -143,6 +143,14 @@ one, and after five the window has to be opened again.
 The phone's glow lights up only while the Mac answers, which only a Mac with the
 same key can do.
 
+## Cable or Wi-Fi
+
+Settings choose the way to the Mac. Automatic tries a cable first whenever one
+is plugged in and falls back to Wi-Fi if the Mac does not answer over it within
+a few seconds; plugging the cable in or out switches on the fly. Cable only and
+Wi-Fi only stick to one. If Cable only never connects, turn on Personal Hotspot
+on the phone while the cable is in; that gives the Mac a network link over USB.
+
 ## Settings and several Macs
 
 The name at the top left opens a menu: switch between paired Macs, pair

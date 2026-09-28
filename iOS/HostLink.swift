@@ -12,6 +12,20 @@ final class HostLink {
     var onPacket: ((Packet) -> Void)?
     var onHostsChange: (([String]) -> Void)?
     var onRouteChange: ((Route?) -> Void)?
+    enum Preference: String, CaseIterable {
+        case automatic
+        case cable
+        case wifi
+    }
+
+    // Which way to reach the Mac. Automatic tries a cable first when one is
+    // plugged in, since it is faster and steadier than Wi-Fi.
+    var preference = Preference.automatic {
+        didSet {
+            guard preference != oldValue else { return }
+            reconnect()
+        }
+    }
     // Paired Macs, the preferred one first. The link connects to the first
     // of them in sight.
     var pairings: [Pairing] = [] {
@@ -32,6 +46,13 @@ final class HostLink {
     private var counter: UInt64 = 0
     private var macCounter: UInt64 = 0
     private var clipStream: ClipboardStream?
+    private var interfaceMonitor: NWPathMonitor?
+    private var hasCable = false
+    private var cableFailedUntil: TimeInterval = 0
+    private var cableCheck: Timer?
+    private var heardFromMac = false
+    private let cableTimeout = 2.5
+    private let cableRetry = 30.0
 
     private let fallbackDelay = 3.0
 
@@ -43,11 +64,43 @@ final class HostLink {
         }
         monitor.start(queue: .main)
         wifiMonitor = monitor
+        let interfaces = NWPathMonitor()
+        interfaces.pathUpdateHandler = { [weak self] path in
+            self?.cableChanged(path.availableInterfaces.contains(where: Self.isCable))
+        }
+        interfaces.start(queue: .main)
+        interfaceMonitor = interfaces
+    }
+
+    private static func isCable(_ interface: NWInterface) -> Bool {
+        if interface.type == .wiredEthernet { return true }
+        guard interface.type == .other else { return false }
+        return !["awdl", "llw", "utun", "ipsec", "lo", "pdp", "ap"].contains { interface.name.hasPrefix($0) }
+    }
+
+    private func cableChanged(_ available: Bool) {
+        guard available != hasCable else { return }
+        hasCable = available
+        if available {
+            cableFailedUntil = 0
+        }
+        if preference == .automatic {
+            reconnect()
+        }
+    }
+
+    private func reconnect() {
+        guard wifiMonitor != nil else { return }
+        disconnect()
+        update(browser?.browseResults ?? [])
     }
 
     func stop() {
         wifiMonitor?.cancel()
         wifiMonitor = nil
+        interfaceMonitor?.cancel()
+        interfaceMonitor = nil
+        hasCable = false
         stopBrowsing()
         onHostChange?(nil)
     }
@@ -136,6 +189,8 @@ final class HostLink {
     }
 
     private func disconnect() {
+        cableCheck?.invalidate()
+        cableCheck = nil
         connection?.cancel()
         connection = nil
         connectedName = nil
@@ -178,7 +233,19 @@ final class HostLink {
 
     private func connect(to endpoint: NWEndpoint) {
         macCounter = 0
-        let connection = NWConnection(to: endpoint, using: Self.parameters(peerToPeer: usesPeerToPeer))
+        heardFromMac = false
+        let parameters = Self.parameters(peerToPeer: usesPeerToPeer)
+        let now = ProcessInfo.processInfo.systemUptime
+        let triesCable = preference == .cable || (preference == .automatic && hasCable && now > cableFailedUntil)
+        if triesCable {
+            parameters.prohibitedInterfaceTypes = [.wifi, .cellular]
+        } else if preference == .wifi {
+            parameters.prohibitedInterfaceTypes = [.wiredEthernet]
+        }
+        if triesCable, preference == .automatic {
+            watchCable()
+        }
+        let connection = NWConnection(to: endpoint, using: parameters)
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection, connection === self.connection else { return }
             switch state {
@@ -203,12 +270,25 @@ final class HostLink {
         }
     }
 
+    // If the Mac does not answer over the cable soon, the cable is not a way
+    // to it after all, and the link goes back to Wi-Fi for a while.
+    private func watchCable() {
+        let timer = Timer(timeInterval: cableTimeout, repeats: false) { [weak self] _ in
+            guard let self, !self.heardFromMac else { return }
+            self.cableFailedUntil = ProcessInfo.processInfo.systemUptime + self.cableRetry
+            self.reconnect()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        cableCheck = timer
+    }
+
     private func receive(on connection: NWConnection) {
         connection.receiveMessage { [weak self] data, _, _, error in
             guard let self, connection === self.connection else { return }
             if let data, let channel = self.channel,
                let (packet, counter) = channel.open(data, from: .mac), counter > self.macCounter {
                 self.macCounter = counter
+                self.heardFromMac = true
                 if case let .clipboardPort(port) = packet {
                     self.openClipboard(port: port)
                 } else {
