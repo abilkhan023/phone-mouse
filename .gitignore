@@ -4,3 +4,5 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 *.xcscmblueprint
+dist/
+.idea/
