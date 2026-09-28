@@ -104,7 +104,7 @@ struct StatusBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Button {
-                controller.isPairing = true
+                controller.showPairing()
             } label: {
                 Image(systemName: "qrcode.viewfinder")
                     .font(.system(size: 17, weight: .medium))

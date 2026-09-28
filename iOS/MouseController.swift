@@ -145,6 +145,13 @@ final class MouseController {
         cancelCodePairing()
     }
 
+    // The pairing screen covers the touchpad, so its keyboard goes away.
+    func showPairing() {
+        isTyping = false
+        modifiers = []
+        isPairing = true
+    }
+
     func choose(_ name: String) {
         cancelCodePairing()
         codeState = .entering(name)
