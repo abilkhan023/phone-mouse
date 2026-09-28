@@ -158,9 +158,10 @@ enum Packet: Equatable {
     case appsRequest
     case apps([RunningApp])
     case appCommand(AppCommand)
-    // The mini screen: the phone turns frames on and off, the Mac sends JPEG
-    // frames of its main display, and a tap on one points there.
-    case screen(Bool)
+    // The mini screen: the phone asks for frames as wide as its picture in
+    // pixels, zero to stop; the Mac sends JPEG frames of its main display,
+    // and a tap on one points there.
+    case screen(width: UInt16)
     case screenFrame(Data)
     case pointAt(x: Float, y: Float, click: Bool)
     // Pairing by code travels in the clear; see CodePairing.
@@ -259,8 +260,8 @@ enum Packet: Equatable {
             guard let command = try? JSONDecoder().decode(AppCommand.self, from: data.dropFirst()) else { return nil }
             self = .appCommand(command)
         case Self.screenTag:
-            guard data.count == 2 else { return nil }
-            self = .screen(data[data.startIndex + 1] != 0)
+            guard data.count == 3 else { return nil }
+            self = .screen(width: UInt16(data[data.startIndex + 1]) | UInt16(data[data.startIndex + 2]) << 8)
         case Self.screenFrameTag:
             self = .screenFrame(Data(data.dropFirst()))
         case Self.pointAtTag:
@@ -346,8 +347,8 @@ enum Packet: Equatable {
         case let .appCommand(command):
             data.append(Self.appCommandTag)
             data.append((try? JSONEncoder().encode(command)) ?? Data())
-        case let .screen(on):
-            data.append(contentsOf: [Self.screenTag, on ? 1 : 0])
+        case let .screen(width):
+            data.append(contentsOf: [Self.screenTag, UInt8(width & 0xff), UInt8(width >> 8)])
         case let .screenFrame(jpeg):
             data.append(Self.screenFrameTag)
             data.append(jpeg)

@@ -7,17 +7,23 @@ import ScreenCaptureKit
 final class ScreenStreamer {
     var send: ((Data, @escaping () -> Void) -> Void)?
 
-    private let width = 720
+    private let widthRange = 320...2560
     private let interval = 1.0 / 6
-    private let quality = 0.5
+    private let quality = 0.75
+    private var width = 1080
     private let keepAlive = 5.0
     private var isRunning = false
     private var requestedAt: TimeInterval = 0
 
     // The phone repeats the request while it watches; frames stop when it
-    // stops asking.
-    func request(_ on: Bool) {
+    // stops asking. Frames come as wide as the phone's picture in pixels, so
+    // text is as sharp as the phone can show it.
+    func request(width: Int) {
         requestedAt = ProcessInfo.processInfo.systemUptime
+        let on = width > 0
+        if on {
+            self.width = min(max(width, widthRange.lowerBound), widthRange.upperBound)
+        }
         if on, !isRunning {
             isRunning = true
             capture()

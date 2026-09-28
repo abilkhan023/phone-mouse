@@ -232,8 +232,8 @@ final class HostController {
         case let .appCommand(command):
             switcher.perform(command)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.sendApps() }
-        case let .screen(on):
-            streamer.request(on)
+        case let .screen(width):
+            streamer.request(width: Int(width))
         case let .pointAt(x, y, click):
             let bounds = CGDisplayBounds(CGMainDisplayID())
             let point = CGPoint(x: bounds.minX + CGFloat(x) * bounds.width, y: bounds.minY + CGFloat(y) * bounds.height)

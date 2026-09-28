@@ -290,15 +290,17 @@ final class MouseController {
 
     // Frames come while the mini screen is on view; the request is repeated
     // so the Mac stops by itself if the phone goes away.
-    func watchScreen(_ on: Bool) {
+    // Width is the picture's width on the phone in pixels, zero to stop.
+    func watchScreen(width: Int) {
         screenTimer?.invalidate()
         screenTimer = nil
-        link.sendReliably(.screen(on))
-        guard on else {
+        let width = UInt16(clamping: width)
+        link.sendReliably(.screen(width: width))
+        guard width > 0 else {
             screenImage = nil
             return
         }
-        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.link.sendReliably(.screen(true)) }
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.link.sendReliably(.screen(width: width)) }
         RunLoop.main.add(timer, forMode: .common)
         screenTimer = timer
     }

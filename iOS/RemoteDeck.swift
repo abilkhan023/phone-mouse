@@ -171,17 +171,30 @@ private struct ScreenPad: View {
     let controller: MouseController
     @State private var sliding = false
     @State private var lastPointAt = Date.distantPast
+    @Environment(\.displayScale) private var displayScale
 
     private let slop: CGFloat = 8
     private let pointInterval = 1.0 / 30
 
     var body: some View {
+        GeometryReader { box in
+            content
+                .onAppear { controller.watchScreen(width: Int((box.size.width - 12) * displayScale)) }
+                .onChange(of: box.size.width) { _, width in
+                    controller.watchScreen(width: Int((width - 12) * displayScale))
+                }
+        }
+        .onDisappear { controller.watchScreen(width: 0) }
+    }
+
+    private var content: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
             if let image = controller.screenImage {
                 VStack(spacing: 8) {
                     Image(uiImage: image)
                         .resizable()
+                        .interpolation(.high)
                         .aspectRatio(contentMode: .fit)
                         .overlay {
                             GeometryReader { box in
@@ -204,8 +217,6 @@ private struct ScreenPad: View {
                     .padding(24)
             }
         }
-        .onAppear { controller.watchScreen(true) }
-        .onDisappear { controller.watchScreen(false) }
     }
 
     private func pointing(in size: CGSize) -> some Gesture {
