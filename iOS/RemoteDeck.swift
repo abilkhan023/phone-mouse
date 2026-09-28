@@ -166,33 +166,42 @@ private struct AppsPad: View {
 
 // A live picture of the Mac's main display. A tap clicks at that spot, two
 // taps double-click, and a finger sliding over it leads the cursor without
-// clicking.
+// clicking. The picture lies turned a quarter clockwise by default, so with
+// the phone held sideways the Mac's wide screen fills the tall page.
 private struct ScreenPad: View {
     let controller: MouseController
     @State private var sliding = false
     @State private var lastPointAt = Date.distantPast
+    @AppStorage("screenTurned") private var turned = true
     @Environment(\.displayScale) private var displayScale
 
     private let slop: CGFloat = 8
     private let pointInterval = 1.0 / 30
+    private let hintHeight: CGFloat = 30
 
     var body: some View {
         GeometryReader { box in
             content
-                .onAppear { controller.watchScreen(width: Int((box.size.width - 12) * displayScale)) }
-                .onChange(of: box.size.width) { _, width in
-                    controller.watchScreen(width: Int((width - 12) * displayScale))
-                }
+                .onAppear { request(for: box.size) }
+                .onChange(of: box.size) { _, size in request(for: size) }
+                .onChange(of: turned) { request(for: box.size) }
         }
         .onDisappear { controller.watchScreen(width: 0) }
     }
 
+    // The Mac's width lies along the page's height when turned, so frames are
+    // asked for that many pixels wide.
+    private func request(for size: CGSize) {
+        let length = turned ? size.height - hintHeight - 12 : size.width - 12
+        controller.watchScreen(width: Int(length * displayScale))
+    }
+
     private var content: some View {
-        ZStack {
+        ZStack(alignment: .topTrailing) {
             RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
             if let image = controller.screenImage {
                 VStack(spacing: 8) {
-                    Image(uiImage: image)
+                    Image(uiImage: shown(image))
                         .resizable()
                         .interpolation(.high)
                         .aspectRatio(contentMode: .fit)
@@ -204,9 +213,11 @@ private struct ScreenPad: View {
                             }
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     Text("Tap to click there · slide a finger to move the cursor")
                         .font(.marking(12))
                         .foregroundStyle(Palette.ink.opacity(0.6))
+                        .frame(height: hintHeight - 8)
                 }
                 .padding(6)
             } else {
@@ -215,8 +226,24 @@ private struct ScreenPad: View {
                     .foregroundStyle(Palette.ink.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            Button { turned.toggle() } label: {
+                Image(systemName: turned ? "rectangle.portrait.rotate" : "rectangle.landscape.rotate")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 36, height: 36)
+                    .background(Palette.pressed.opacity(0.85), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(10)
+            .accessibilityLabel(turned ? "Show the screen upright" : "Turn the screen sideways")
         }
+    }
+
+    private func shown(_ image: UIImage) -> UIImage {
+        guard turned, let cgImage = image.cgImage else { return image }
+        return UIImage(cgImage: cgImage, scale: image.scale, orientation: .right)
     }
 
     private func pointing(in size: CGSize) -> some Gesture {
@@ -230,21 +257,17 @@ private struct ScreenPad: View {
                 point(drag.location, in: size, click: false)
             }
             .onEnded { drag in
-                if sliding {
-                    point(drag.location, in: size, click: false)
-                } else {
-                    point(drag.location, in: size, click: true)
-                }
+                point(drag.location, in: size, click: !sliding)
                 sliding = false
             }
     }
 
+    // Turned a quarter clockwise, the Mac's left edge is at the top of the
+    // picture and its top edge on the right.
     private func point(_ location: CGPoint, in size: CGSize, click: Bool) {
-        controller.point(
-            atX: min(max(location.x / size.width, 0), 1),
-            y: min(max(location.y / size.height, 0), 1),
-            click: click
-        )
+        let u = min(max(location.x / size.width, 0), 1)
+        let v = min(max(location.y / size.height, 0), 1)
+        controller.point(atX: turned ? v : u, y: turned ? 1 - u : v, click: click)
     }
 }
 
