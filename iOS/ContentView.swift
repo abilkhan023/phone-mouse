@@ -154,9 +154,13 @@ struct PairingSheet: View {
     let controller: MouseController
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Palette.shellBottom
             VStack(spacing: 20) {
+                PairingScanner { controller.pair(with: $0) }
+                    .frame(width: 260, height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Palette.groove, lineWidth: 2))
                 Text("Pair with your Mac")
                     .font(.marking(22))
                     .foregroundStyle(Palette.ink)
@@ -165,16 +169,13 @@ struct PairingSheet: View {
                     .foregroundStyle(Palette.ink.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-                PairingScanner { controller.pair(with: $0) }
-                    .frame(width: 260, height: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 28))
-                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Palette.groove, lineWidth: 2))
                 if controller.pairing != nil {
                     Button("Cancel") { controller.isPairing = false }
                         .font(.marking(17))
                         .foregroundStyle(Palette.ink)
                 }
             }
+            .padding(.top, 70)
         }
         .ignoresSafeArea()
     }
