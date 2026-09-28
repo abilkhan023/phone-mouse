@@ -74,7 +74,10 @@ for through its default shortcut.
 fn, esc, tab, forward delete, home, end, page up and down, the top row, the
 arrows, and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘
 then C copies. The top row works as on a MacBook: brightness, Mission Control,
-Spotlight, media and volume; with fn it sends F1 to F12. Shortcuts work with the Russian keyboard too. Holding delete repeats
+Spotlight, media and volume; with fn it sends F1 to F12. The keys repeat while
+held. A modifier held with a finger stays down on the Mac, so ⌘ held while
+tapping ⇥ walks through apps and ⌘-click works; a short tap latches it for the
+next key instead. The globe key, and ⌃Space, switch the Mac's input language. Shortcuts work with the Russian keyboard too. Holding delete repeats
 and speeds up to whole words, as on the phone.
 
 Key events are numbered and the phone sends them again until the Mac confirms

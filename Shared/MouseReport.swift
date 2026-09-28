@@ -20,12 +20,19 @@ struct MouseReport: Equatable {
     var scrollY: Float = 0
 }
 
+extension KeyEvent.Kind {
+    var carriesKey: Bool { self == .stroke || self == .hold || self == .release }
+}
+
 struct KeyEvent: Equatable {
     enum Kind: UInt8 {
         case text
         case backspace
         case enter
         case stroke
+        // Modifiers pressed down and let go, for keys held on the phone.
+        case hold
+        case release
     }
 
     var seq: UInt32
@@ -115,7 +122,7 @@ enum Packet: Equatable {
             guard data.count >= Self.keyHeader,
                   let kind = KeyEvent.Kind(rawValue: data[data.startIndex + 5]) else { return nil }
             let seq: UInt32 = data.readLittleEndian(at: 1)
-            if kind == .stroke {
+            if kind.carriesKey {
                 guard data.count == Self.keyHeader + 2 else { return nil }
                 self = .key(KeyEvent(
                     seq: seq,
@@ -174,7 +181,7 @@ enum Packet: Equatable {
             data.append(Self.keyTag)
             data.appendLittleEndian(event.seq)
             data.append(event.kind.rawValue)
-            if event.kind == .stroke {
+            if event.kind.carriesKey {
                 data.append(contentsOf: [event.keyCode, event.modifiers.rawValue])
             } else {
                 data.append(contentsOf: event.text.utf8)

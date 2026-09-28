@@ -29,6 +29,8 @@ enum KeyMap {
     static let right: UInt8 = 124
     static let down: UInt8 = 125
     static let up: UInt8 = 126
+    // The globe key; the Mac switches the input source for it.
+    static let globe: UInt8 = 63
     static let function: [UInt8] = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
 
     static func lookup(_ character: Character) -> (code: UInt8, shift: Bool)? {

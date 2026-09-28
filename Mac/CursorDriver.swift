@@ -20,6 +20,8 @@ final class CursorDriver {
     private var lastArrival: TimeInterval = 0
     private var lastTick: TimeInterval = 0
     private var timer: Timer?
+    // Modifiers held on the phone, so ⌘-click and ⌥-drag work.
+    var flags = CGEventFlags()
 
     func apply(_ report: MouseReport) {
         track(arrivalAt: ProcessInfo.processInfo.systemUptime)
@@ -137,8 +139,11 @@ final class CursorDriver {
         guard x != 0 || y != 0 else { return }
         scrollRemainder.width -= CGFloat(x)
         scrollRemainder.height -= CGFloat(y)
-        CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0)?
-            .post(tap: .cghidEventTap)
+        guard let event = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0) else { return }
+        if !flags.isEmpty {
+            event.flags = flags
+        }
+        event.post(tap: .cghidEventTap)
     }
 
     private func sync() {
@@ -169,6 +174,9 @@ final class CursorDriver {
         guard let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: position, mouseButton: button) else { return }
         if clickState > 0 {
             event.setIntegerValueField(.mouseEventClickState, value: clickState)
+        }
+        if !flags.isEmpty {
+            event.flags = flags
         }
         event.post(tap: .cghidEventTap)
     }

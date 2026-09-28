@@ -39,7 +39,10 @@ final class MouseController {
     private(set) var mode: PointerMode
     private(set) var typed: String
     private(set) var pairing: Pairing?
+    // Latched by a tap, for the next key only.
     private(set) var modifiers: KeyModifiers = []
+    // Held down by a finger on the key, and down on the Mac too.
+    private(set) var held: KeyModifiers = []
     private(set) var nearbyHosts: [String] = []
     private(set) var codeState = CodeState.idle
     // Changes when the typed line is erased, so the key capture starts over.
@@ -57,6 +60,8 @@ final class MouseController {
     @ObservationIgnored private var lastMacAt: TimeInterval = 0
     @ObservationIgnored private var ticks = 0
     @ObservationIgnored private var codeClient: CodePairingClient?
+    @ObservationIgnored private var heldSince: [UInt8: TimeInterval] = [:]
+    @ObservationIgnored private var usedWhileHeld = false
     @ObservationIgnored private var volumeSeq: UInt32 = 0
     @ObservationIgnored private var gestureSeq: UInt32 = 0
     @ObservationIgnored private var buttons: MouseButtons = []
@@ -91,6 +96,7 @@ final class MouseController {
     private let linkTimeout = 1.5
     private let resendTicks = 5
     private let resendBatch = 32
+    private let tapLimit = 0.3
 
     init() {
         mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
@@ -130,6 +136,7 @@ final class MouseController {
         fallbackTimer = nil
         buttons = []
         send(motion: nil)
+        releaseAllModifiers()
         link.stop()
         setLinked(false)
         cancelCodePairing()
@@ -148,7 +155,7 @@ final class MouseController {
     // The pairing screen covers the touchpad, so its keyboard goes away.
     func showPairing() {
         isTyping = false
-        modifiers = []
+        releaseAllModifiers()
         isPairing = true
     }
 
@@ -223,16 +230,50 @@ final class MouseController {
         haptics.impactOccurred(intensity: 0.5)
     }
 
+    // A modifier goes down on the Mac as soon as the finger lands, so it can
+    // be held through several keys or a click, like on a real keyboard. A
+    // short tap with nothing pressed meanwhile latches it for the next key.
+    func holdModifier(_ modifier: KeyModifiers) {
+        guard !held.contains(modifier) else { return }
+        if held.isEmpty {
+            usedWhileHeld = false
+        }
+        held.insert(modifier)
+        heldSince[modifier.rawValue] = ProcessInfo.processInfo.systemUptime
+        queue(KeyEvent(seq: 0, kind: .hold, modifiers: modifier))
+        haptics.impactOccurred(intensity: 0.5)
+    }
+
+    func releaseModifier(_ modifier: KeyModifiers) {
+        guard held.contains(modifier) else { return }
+        held.remove(modifier)
+        queue(KeyEvent(seq: 0, kind: .release, modifiers: modifier))
+        let since = heldSince.removeValue(forKey: modifier.rawValue) ?? 0
+        if !usedWhileHeld, ProcessInfo.processInfo.systemUptime - since < tapLimit {
+            modifiers.formSymmetricDifference(modifier)
+        }
+    }
+
+    private func releaseAllModifiers() {
+        for modifier in [KeyModifiers.control, .option, .command, .shift] where held.contains(modifier) {
+            held.remove(modifier)
+            queue(KeyEvent(seq: 0, kind: .release, modifiers: modifier))
+        }
+        heldSince = [:]
+        modifiers = []
+    }
+
     // Keys of the Mac keyboard that iOS has no key for. Modifiers stay latched
     // until the next key, the way sticky keys work.
     func press(_ keyCode: UInt8) {
+        usedWhileHeld = true
         queue(KeyEvent(seq: 0, kind: .stroke, keyCode: keyCode, modifiers: modifiers))
         modifiers = []
         haptics.impactOccurred(intensity: 0.5)
     }
 
     func type(_ kind: KeyEvent.Kind, text: String) {
-        if !modifiers.subtracting(.function).isEmpty, let key = strokeKey(kind, text: text) {
+        if !modifiers.union(held).subtracting(.function).isEmpty, let key = strokeKey(kind, text: text) {
             if key.shift { modifiers.insert(.shift) }
             press(key.code)
             return
@@ -242,7 +283,7 @@ final class MouseController {
         case .text: typed = String((typed + text).suffix(typedLimit))
         case .backspace: typed = String(typed.dropLast())
         case .enter: typed = String((typed + "\n").suffix(typedLimit))
-        case .stroke: break
+        case .stroke, .hold, .release: break
         }
         queue(KeyEvent(seq: 0, kind: kind, text: text))
     }
@@ -297,7 +338,7 @@ final class MouseController {
         case .backspace: (KeyMap.backspace, false)
         case .enter: (KeyMap.returnKey, false)
         case .text: text.count == 1 ? text.first.flatMap(KeyMap.lookup) : nil
-        case .stroke: nil
+        case .stroke, .hold, .release: nil
         }
     }
 

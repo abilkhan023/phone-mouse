@@ -324,6 +324,7 @@ final class HostController {
     private func apply(_ event: KeyEvent) {
         lastKeySeq = event.seq
         keyboard.apply(event)
+        driver.flags = keyboard.heldFlags
     }
 
     private func handle(_ event: VolumeEvent) {
@@ -353,5 +354,7 @@ final class HostController {
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }
         isClientActive = false
         driver.releaseButtons()
+        keyboard.releaseAll()
+        driver.flags = []
     }
 }

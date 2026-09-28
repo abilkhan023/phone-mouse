@@ -340,15 +340,22 @@ struct MacKeyStrip: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     let plain = controller.modifiers.contains(.function)
-                    cap("fn", name: "Function", lit: plain) { controller.toggle(.function) }
+                    RepeatKey(repeats: false, action: { controller.toggle(.function) }) { pressed in
+                        cap(Text("fn"), name: "Function", lit: plain || pressed)
+                    }
+                    RepeatKey(repeats: false, action: { controller.press(KeyMap.globe) }) { pressed in
+                        cap(Image(systemName: "globe"), name: "Switch input language", lit: pressed)
+                    }
                     ForEach(extras, id: \.code) { key in
-                        cap(key.label, name: key.name) { controller.press(key.code) }
+                        repeating(Text(key.label), name: key.name, code: key.code)
                     }
                     ForEach(Array(KeyMap.function.enumerated()), id: \.element) { index, code in
                         let key = topRow[index]
                         let label = "F\(index + 1)"
-                        cap(label, symbol: plain ? nil : key.symbol, name: plain ? label : key.name) {
-                            controller.press(code)
+                        if let symbol = key.symbol, !plain {
+                            repeating(Image(systemName: symbol), name: key.name, code: code)
+                        } else {
+                            repeating(Text(label), name: label, code: code)
                         }
                     }
                 }
@@ -356,37 +363,39 @@ struct MacKeyStrip: View {
             }
             HStack(spacing: 6) {
                 ForEach(modifierKeys, id: \.modifier.rawValue) { key in
-                    cap(key.label, name: key.name, lit: controller.modifiers.contains(key.modifier)) {
-                        controller.toggle(key.modifier)
+                    HoldKey(
+                        onDown: { controller.holdModifier(key.modifier) },
+                        onUp: { controller.releaseModifier(key.modifier) }
+                    ) {
+                        let lit = controller.modifiers.contains(key.modifier) || controller.held.contains(key.modifier)
+                        cap(Text(key.label), name: key.name, lit: lit)
                     }
                 }
                 Spacer(minLength: 6)
                 ForEach(arrows, id: \.code) { key in
-                    cap(key.label, name: key.name) { controller.press(key.code) }
+                    repeating(Text(key.label), name: key.name, code: key.code)
                 }
             }
             .padding(.horizontal, 14)
         }
     }
 
-    private func cap(_ label: String, symbol: String? = nil, name: String, lit: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Group {
-                if let symbol {
-                    Image(systemName: symbol).font(.system(size: 15, weight: .medium))
-                } else {
-                    Text(label).font(.marking(16))
-                }
-            }
+    private func repeating(_ face: some View, name: String, code: UInt8) -> some View {
+        RepeatKey(action: { controller.press(code) }) { pressed in
+            cap(face, name: name, lit: pressed)
+        }
+    }
+
+    private func cap(_ face: some View, name: String, lit: Bool) -> some View {
+        face
+            .font(.marking(16))
             .foregroundStyle(lit ? Palette.shellBottom : Palette.ink)
             .padding(.horizontal, 10)
             .frame(minWidth: 40, minHeight: height)
             .background(lit ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(name)
-        .accessibilityAddTraits(lit ? .isSelected : [])
+            .accessibilityLabel(name)
+            .accessibilityAddTraits(lit ? .isSelected : [])
     }
 }
 

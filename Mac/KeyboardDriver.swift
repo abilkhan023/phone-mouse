@@ -1,6 +1,9 @@
 import AppKit
+import Carbon
 
 final class KeyboardDriver {
+    // Modifiers the phone holds down right now.
+    private(set) var held: KeyModifiers = []
     private let source = CGEventSource(stateID: .hidSystemState)
     private let chunk = 20
     private let eraseLimit = 5000
@@ -27,12 +30,62 @@ final class KeyboardDriver {
         case .enter:
             press(CGKeyCode(KeyMap.returnKey))
         case .stroke:
+            let modifiers = event.modifiers.subtracting(.function)
             if let index = KeyMap.function.firstIndex(of: event.keyCode), !event.modifiers.contains(.function) {
                 topRow(index)
+            } else if event.keyCode == KeyMap.globe
+                        || (event.keyCode == KeyMap.space && modifiers.union(held) == .control) {
+                switchInputSource()
             } else {
-                press(CGKeyCode(event.keyCode), modifiers: event.modifiers.subtracting(.function))
+                press(CGKeyCode(event.keyCode), modifiers: modifiers)
             }
+        case .hold:
+            hold(event.modifiers.subtracting(held))
+        case .release:
+            release(event.modifiers.intersection(held))
         }
+    }
+
+    var heldFlags: CGEventFlags {
+        modifierKeys.filter { held.contains($0.modifier) }.reduce(into: CGEventFlags()) { $0.insert($1.flag) }
+    }
+
+    func releaseAll() {
+        release(held)
+    }
+
+    private func hold(_ modifiers: KeyModifiers) {
+        for entry in modifierKeys where modifiers.contains(entry.modifier) {
+            held.insert(entry.modifier)
+            postModifier(entry.code, flags: heldFlags)
+        }
+    }
+
+    private func release(_ modifiers: KeyModifiers) {
+        for entry in modifierKeys.reversed() where modifiers.contains(entry.modifier) {
+            held.remove(entry.modifier)
+            postModifier(entry.code, flags: heldFlags)
+        }
+    }
+
+    // Synthetic shortcuts such as ⌃Space often miss the input source switcher,
+    // so the Mac switches to the next keyboard layout itself.
+    private func switchInputSource() {
+        let filter = [
+            kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource,
+            kTISPropertyInputSourceIsSelectCapable: true,
+        ] as CFDictionary
+        guard let list = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource],
+              list.count > 1,
+              let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
+        let ids = list.map { sourceID($0) }
+        let index = ids.firstIndex(of: sourceID(current)) ?? -1
+        TISSelectInputSource(list[(index + 1) % list.count])
+    }
+
+    private func sourceID(_ source: TISInputSource) -> String {
+        guard let pointer = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return "" }
+        return Unmanaged<CFString>.fromOpaque(pointer).takeUnretainedValue() as String
     }
 
     // Volume goes through the media keys, so macOS shows its own volume overlay
@@ -112,19 +165,29 @@ final class KeyboardDriver {
 
     // Modifier keys are pressed around the key as well as set in its flags,
     // because some apps only look at one of the two.
+    // Modifiers the phone already holds stay down; the rest are pressed
+    // around the key.
     private func press(_ key: CGKeyCode, modifiers: KeyModifiers = []) {
-        let held = modifierKeys.filter { modifiers.contains($0.modifier) }
-        var flags = CGEventFlags()
-        for entry in held {
+        let pressed = modifierKeys.filter { modifiers.contains($0.modifier) && !held.contains($0.modifier) }
+        var flags = heldFlags
+        for entry in pressed {
             flags.insert(entry.flag)
-            post(entry.code, down: true, flags: flags)
+            postModifier(entry.code, flags: flags)
         }
         post(key, down: true, flags: flags.union(keyFlags(key)))
         post(key, down: false, flags: flags.union(keyFlags(key)))
-        for entry in held.reversed() {
+        for entry in pressed.reversed() {
             flags.remove(entry.flag)
-            post(entry.code, down: false, flags: flags)
+            postModifier(entry.code, flags: flags)
         }
+    }
+
+    // A modifier key reaches apps as a change of flags, not as a key press.
+    private func postModifier(_ key: CGKeyCode, flags: CGEventFlags) {
+        guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true) else { return }
+        event.type = .flagsChanged
+        event.flags = flags
+        event.post(tap: .cghidEventTap)
     }
 
     // A real keyboard marks arrows as keypad keys and both arrows and the
