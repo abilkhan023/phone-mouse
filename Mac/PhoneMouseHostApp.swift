@@ -66,21 +66,17 @@ struct PairingView: View {
                     .resizable()
                     .frame(width: 240, height: 240)
             }
-            if let comparison = host.comparison {
-                VStack(spacing: 8) {
-                    Text("An iPhone wants to pair. Allow it only if it shows the same code.")
+            if let code = host.pairingCode {
+                VStack(spacing: 4) {
+                    Text("No camera handy? Choose Pair by code on the phone and type")
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .frame(width: 280)
-                    Text(comparison.code.prefix(3) + " " + comparison.code.suffix(3))
+                    Text(code.prefix(3) + " " + code.suffix(3))
                         .font(.system(size: 34, weight: .semibold, design: .monospaced))
-                    HStack {
-                        Button("Deny") { host.denyComparison() }
-                        Button("Allow") { host.allowComparison() }
-                            .keyboardShortcut(.defaultAction)
-                    }
                 }
             } else {
-                Text("No camera handy? On the phone choose Pair by code and pick this Mac.")
+                Text("Too many wrong codes. Close this window and open it again for a new one.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

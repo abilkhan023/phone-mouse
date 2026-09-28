@@ -3,6 +3,7 @@ import UIKit
 
 struct KeyCapture: UIViewRepresentable {
     let isActive: Bool
+    let lineResets: Int
     let onKey: (KeyEvent.Kind, String) -> Void
 
     func makeUIView(context: Context) -> KeyCaptureField {
@@ -11,6 +12,7 @@ struct KeyCapture: UIViewRepresentable {
 
     func updateUIView(_ view: KeyCaptureField, context: Context) {
         view.onKey = onKey
+        view.startOver(lineResets)
         let active = isActive
         DispatchQueue.main.async {
             if active, !view.isFirstResponder {
@@ -32,6 +34,7 @@ final class KeyCaptureField: UITextField, UITextFieldDelegate {
     private let filler = String(repeating: "x ", count: 32)
     private let lineLimit = 500
     private var last = ""
+    private var resets = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -97,6 +100,12 @@ final class KeyCaptureField: UITextField, UITextFieldDelegate {
         } else {
             last = now
         }
+    }
+
+    func startOver(_ resets: Int) {
+        guard resets != self.resets else { return }
+        self.resets = resets
+        reset(line: "")
     }
 
     private func reset(line: String) {

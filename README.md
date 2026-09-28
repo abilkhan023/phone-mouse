@@ -71,15 +71,16 @@ for through its default shortcut.
 | Pinch with two fingers | Zoom in or out |
 
 **Keyboard.** Above the iPhone keyboard sits a row of Mac keys that iOS lacks:
-esc, tab, forward delete, home, end, page up and down, F1 to F12, the arrows,
-and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘ then C
-copies. Shortcuts work with the Russian keyboard too. Holding delete repeats
+fn, esc, tab, forward delete, home, end, page up and down, the top row, the
+arrows, and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘
+then C copies. The top row works as on a MacBook: brightness, Mission Control,
+Spotlight, media and volume; with fn it sends F1 to F12. Shortcuts work with the Russian keyboard too. Holding delete repeats
 and speeds up to whole words, as on the phone.
 
 Key events are numbered and the phone sends them again until the Mac confirms
 them, so nothing typed is lost when the connection drops: it arrives, in order,
 once the phone is back. The line of typed text survives restarts and scrolls
-sideways to show all of it.
+sideways to show all of it. Its clear button erases the same text on the Mac.
 
 **Volume.** While connected, the phone's volume buttons change the Mac's volume.
 The phone's own volume stays where it was.
@@ -95,10 +96,13 @@ the menu. New code there unpairs the old phone. The pairing window closes by
 itself once the phone connects.
 
 Without a camera, choose the Mac under Pair by code on the phone while the
-pairing window is open. Both screens show a six-digit code; click Allow on the
-Mac if they match. This is Bluetooth-style numeric comparison: the two devices
-agree on a key with Curve25519, and a commitment from the Mac makes a device in
-the middle fail the comparison with a chance of one in a million per try.
+pairing window is open, and type the six-digit code the window shows. This
+works like Bluetooth passkey entry: the two devices agree on a key with
+Curve25519, then prove they know the code one bit per round, each side
+committing to its bit before the other reveals. A device in the middle is
+caught with even odds in each of the twenty rounds, and the code cannot be
+worked out from what goes over the air. A wrong code makes the Mac show a new
+one, and after five the window has to be opened again.
 
 The phone's glow lights up only while the Mac answers, which only a Mac with the
 same key can do.

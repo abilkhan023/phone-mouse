@@ -7,6 +7,8 @@ struct KeyModifiers: OptionSet, Hashable {
     static let option = KeyModifiers(rawValue: 1 << 1)
     static let command = KeyModifiers(rawValue: 1 << 2)
     static let shift = KeyModifiers(rawValue: 1 << 3)
+    // Makes the top row send F1 to F12 instead of its Mac functions.
+    static let function = KeyModifiers(rawValue: 1 << 4)
 }
 
 // Mac virtual key codes of the ANSI keyboard. A shortcut has to be sent as a

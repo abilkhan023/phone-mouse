@@ -3,6 +3,7 @@ import AppKit
 final class KeyboardDriver {
     private let source = CGEventSource(stateID: .hidSystemState)
     private let chunk = 20
+    private let eraseLimit = 5000
     private let mediaKeySubtype: Int16 = 8
     private let modifierKeys: [(modifier: KeyModifiers, code: CGKeyCode, flag: CGEventFlags)] = [
         (.control, 59, .maskControl),
@@ -20,18 +21,45 @@ final class KeyboardDriver {
                 type(Array(units[start..<min(start + chunk, units.count)]), keyCode: CGKeyCode(keyCode))
             }
         case .backspace:
-            press(CGKeyCode(KeyMap.backspace))
+            for _ in 0..<min(Int(event.text) ?? 1, eraseLimit) {
+                press(CGKeyCode(KeyMap.backspace))
+            }
         case .enter:
             press(CGKeyCode(KeyMap.returnKey))
         case .stroke:
-            press(CGKeyCode(event.keyCode), modifiers: event.modifiers)
+            if let index = KeyMap.function.firstIndex(of: event.keyCode), !event.modifiers.contains(.function) {
+                topRow(index)
+            } else {
+                press(CGKeyCode(event.keyCode), modifiers: event.modifiers.subtracting(.function))
+            }
         }
     }
 
     // Volume goes through the media keys, so macOS shows its own volume overlay
     // and changes whichever output device is active.
     func apply(_ event: VolumeEvent) {
-        let key: Int32 = event.direction == .up ? NX_KEYTYPE_SOUND_UP : NX_KEYTYPE_SOUND_DOWN
+        mediaKey(event.direction == .up ? NX_KEYTYPE_SOUND_UP : NX_KEYTYPE_SOUND_DOWN)
+    }
+
+    // The top row does what it does on a MacBook keyboard: brightness,
+    // Mission Control, Spotlight, media and volume. With fn it sends F1 to F12.
+    private func topRow(_ index: Int) {
+        switch index {
+        case 0: mediaKey(NX_KEYTYPE_BRIGHTNESS_DOWN)
+        case 1: mediaKey(NX_KEYTYPE_BRIGHTNESS_UP)
+        case 2: open("/System/Applications/Mission Control.app")
+        case 3: press(CGKeyCode(KeyMap.space), modifiers: .command)
+        case 6: mediaKey(NX_KEYTYPE_PREVIOUS)
+        case 7: mediaKey(NX_KEYTYPE_PLAY)
+        case 8: mediaKey(NX_KEYTYPE_NEXT)
+        case 9: mediaKey(NX_KEYTYPE_MUTE)
+        case 10: mediaKey(NX_KEYTYPE_SOUND_DOWN)
+        case 11: mediaKey(NX_KEYTYPE_SOUND_UP)
+        default: press(CGKeyCode(KeyMap.function[index]))
+        }
+    }
+
+    private func mediaKey(_ key: Int32) {
         for down in [true, false] {
             let flags = NSEvent.ModifierFlags(rawValue: down ? 0xa00 : 0xb00)
             NSEvent.otherEvent(

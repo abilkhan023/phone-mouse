@@ -10,8 +10,9 @@ final class HostController {
     private(set) var pairing: Pairing
     // Changes each time a phone connects, so the pairing window knows to close.
     private(set) var connections = 0
-    // A phone asking to pair by code, shown in the pairing window.
-    private(set) var comparison: Comparison?
+    // Shown in the pairing window for typing on the phone; nil while the
+    // window is closed or after too many wrong tries.
+    private(set) var pairingCode: String?
     let needsPairing: Bool
 
     @ObservationIgnored private var listener: NWListener?
@@ -27,22 +28,23 @@ final class HostController {
     @ObservationIgnored private var lastGestureSeq: UInt32?
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
     @ObservationIgnored private var offers: [ObjectIdentifier: Offer] = [:]
-    @ObservationIgnored private var isPairingOpen = false
-
-    struct Comparison: Equatable {
-        let code: String
-        fileprivate let id: ObjectIdentifier
-    }
+    @ObservationIgnored private var wrongCodes = 0
 
     private struct Offer {
         let privateKey = Curve25519.KeyAgreement.PrivateKey()
-        let macNonce = CodePairing.newNonce()
+        let macNonces = (0..<CodePairing.rounds).map { _ in CodePairing.newNonce() }
         let phoneKey: Data
         let connection: NWConnection
-        var phoneNonce: Data?
-        var isAllowed = false
+        let code: String
+        var commitments: [Data] = []
+        var revealed = 0
 
         var macKey: Data { privateKey.publicKey.rawRepresentation }
+        var isDone: Bool { revealed == CodePairing.rounds }
+
+        func macCommitment(_ round: Int) -> Data {
+            CodePairing.commitment(nonce: macNonces[round], ownKey: macKey, otherKey: phoneKey, round: round, code: code)
+        }
     }
 
     private let driver = CursorDriver()
@@ -50,6 +52,7 @@ final class HostController {
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
     private let offerLimit = 8
+    private let wrongCodeLimit = 5
     private let keyWindow: Int32 = 1000
     private static let counterKey = "lastCounter"
 
@@ -83,42 +86,19 @@ final class HostController {
         disconnect()
     }
 
-    // Pairing by code is only open while the pairing window is.
+    // Pairing by code is only open while the pairing window is, and every
+    // opening brings a new code.
     func beginCodePairing() {
-        isPairingOpen = true
+        wrongCodes = 0
+        offers = offers.filter { $0.value.isDone }
+        pairingCode = CodePairing.newCode()
     }
 
-    // An allowed offer stays, so the phone still gets its confirmation if the
+    // A finished offer stays, so the phone still gets its confirmation if the
     // first one was lost.
     func endCodePairing() {
-        isPairingOpen = false
-        offers = offers.filter { $0.value.isAllowed }
-        comparison = nil
-    }
-
-    func allowComparison() {
-        guard let comparison, var offer = offers[comparison.id], let phoneNonce = offer.phoneNonce,
-              let publicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: offer.phoneKey),
-              let secret = try? offer.privateKey.sharedSecretFromKeyAgreement(with: publicKey) else { return }
-        let key = CodePairing.sessionKey(
-            secret: secret,
-            phoneKey: offer.phoneKey,
-            macKey: offer.macKey,
-            phoneNonce: phoneNonce,
-            macNonce: offer.macNonce
-        )
-        offer.isAllowed = true
-        offers = [comparison.id: offer]
-        self.comparison = nil
-        adopt(Pairing(hostName: Self.serviceName, keyData: key))
-        send(.ack(0), on: offer.connection)
-        connections += 1
-    }
-
-    func denyComparison() {
-        guard let comparison else { return }
-        offers[comparison.id] = nil
-        self.comparison = nil
+        pairingCode = nil
+        offers = offers.filter { $0.value.isDone }
     }
 
     private func adopt(_ pairing: Pairing) {
@@ -199,39 +179,88 @@ final class HostController {
         }
         switch Packet(data: data) {
         case let .pairHello(phoneKey): offer(to: connection, phoneKey: phoneKey)
-        case let .pairNonce(nonce): exchange(nonce, from: connection)
+        case let .pairCommit(round, commitment): commit(Int(round), commitment, from: connection)
+        case let .pairReveal(round, nonce): reveal(Int(round), nonce, from: connection)
         default: break
         }
     }
 
     private func offer(to connection: NWConnection, phoneKey: Data) {
-        guard isPairingOpen, (try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: phoneKey)) != nil else { return }
+        guard let code = pairingCode, (try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: phoneKey)) != nil else { return }
         let id = ObjectIdentifier(connection)
-        if offers[id]?.phoneKey != phoneKey {
-            guard offers.count < offerLimit else { return }
-            offers[id] = Offer(phoneKey: phoneKey, connection: connection)
+        if offers[id]?.phoneKey != phoneKey || offers[id]?.code != code {
+            guard offers[id] != nil || offers.count < offerLimit else { return }
+            offers[id] = Offer(phoneKey: phoneKey, connection: connection, code: code)
         }
         guard let offer = offers[id] else { return }
-        let commitment = CodePairing.commitment(macNonce: offer.macNonce, macKey: offer.macKey, phoneKey: phoneKey)
-        connection.send(content: Packet.pairReply(publicKey: offer.macKey, commitment: commitment).encoded(), completion: .idempotent)
+        reply(.pairReply(publicKey: offer.macKey), on: connection)
     }
 
-    // The phone's nonce is taken once, so it cannot be swapped after the Mac's
-    // nonce is out.
-    private func exchange(_ phoneNonce: Data, from connection: NWConnection) {
+    // A commitment for a round is taken once, and only after the round before
+    // has been revealed.
+    private func commit(_ round: Int, _ commitment: Data, from connection: NWConnection) {
         let id = ObjectIdentifier(connection)
-        guard var offer = offers[id], offer.phoneNonce == nil || offer.phoneNonce == phoneNonce else { return }
-        if offer.isAllowed {
-            send(.ack(0), on: connection)
+        guard var offer = offers[id], round < CodePairing.rounds else { return }
+        if round < offer.commitments.count {
+            guard offer.commitments[round] == commitment else { return }
+        } else {
+            guard round == offer.commitments.count, offer.revealed == round, offer.code == pairingCode else { return }
+            offer.commitments.append(commitment)
+            offers[id] = offer
+        }
+        reply(.pairCommitReply(round: UInt8(round), offer.macCommitment(round)), on: connection)
+    }
+
+    // The Mac's nonce for a round goes out only after the phone's nonce proved
+    // the phone had the right bit.
+    private func reveal(_ round: Int, _ nonce: Data, from connection: NWConnection) {
+        let id = ObjectIdentifier(connection)
+        guard var offer = offers[id], round < offer.commitments.count, round <= offer.revealed else { return }
+        guard CodePairing.commitmentIsValid(
+            offer.commitments[round],
+            nonce: nonce,
+            ownKey: offer.phoneKey,
+            otherKey: offer.macKey,
+            round: round,
+            code: offer.code
+        ) else {
+            reply(.pairReject, on: connection)
+            wrongGuess()
             return
         }
-        offer.phoneNonce = phoneNonce
-        offers[id] = offer
-        connection.send(content: Packet.pairNonceReply(offer.macNonce).encoded(), completion: .idempotent)
-        let code = CodePairing.code(phoneKey: offer.phoneKey, macKey: offer.macKey, phoneNonce: phoneNonce, macNonce: offer.macNonce)
-        if comparison?.id != id {
-            comparison = Comparison(code: code, id: id)
+        let first = round == offer.revealed
+        if first {
+            offer.revealed += 1
+            offers[id] = offer
         }
+        reply(.pairRevealReply(round: UInt8(round), offer.macNonces[round]), on: connection)
+        guard offer.isDone else { return }
+        if first {
+            finish(offer)
+        }
+        send(.ack(0), on: connection)
+    }
+
+    private func finish(_ offer: Offer) {
+        guard let publicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: offer.phoneKey),
+              let secret = try? offer.privateKey.sharedSecretFromKeyAgreement(with: publicKey) else { return }
+        let key = CodePairing.sessionKey(secret: secret, phoneKey: offer.phoneKey, macKey: offer.macKey)
+        offers = offers.filter { $0.value.isDone }
+        adopt(Pairing(hostName: Self.serviceName, keyData: key))
+        pairingCode = CodePairing.newCode()
+        connections += 1
+    }
+
+    // A wrong bit burns the code, and after a few the window has to be opened
+    // again, which keeps guessing hopeless.
+    private func wrongGuess() {
+        wrongCodes += 1
+        offers = offers.filter { $0.value.isDone }
+        pairingCode = wrongCodes < wrongCodeLimit ? CodePairing.newCode() : nil
+    }
+
+    private func reply(_ packet: Packet, on connection: NWConnection) {
+        connection.send(content: packet.encoded(), completion: .idempotent)
     }
 
     private func send(_ packet: Packet, on connection: NWConnection) {

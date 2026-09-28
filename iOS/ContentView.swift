@@ -205,12 +205,14 @@ struct PairingSheet: View {
 
 struct CodePairingSection: View {
     let controller: MouseController
+    @State private var code = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 10) {
             switch controller.codeState {
             case .idle:
-                Text("Or pair by code, with the pairing window open on the Mac:")
+                Text("Or pair by code: open Pair iPhone on the Mac and choose it here.")
                     .font(.marking(15))
                     .foregroundStyle(Palette.ink.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -220,7 +222,7 @@ struct CodePairingSection: View {
                         .foregroundStyle(Palette.ink.opacity(0.5))
                 }
                 ForEach(controller.nearbyHosts, id: \.self) { name in
-                    Button { controller.pairByCode(with: name) } label: {
+                    Button { controller.choose(name) } label: {
                         Text(name)
                             .font(.marking(17))
                             .foregroundStyle(Palette.ink)
@@ -230,28 +232,51 @@ struct CodePairingSection: View {
                     }
                     .buttonStyle(.plain)
                 }
-            case let .waiting(name):
-                Text("Asking \(name)…")
-                    .font(.marking(17))
-                    .foregroundStyle(Palette.ink)
-            case let .comparing(name, code):
-                Text(code.prefix(3) + " " + code.suffix(3))
-                    .font(.system(size: 40, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Palette.ink)
-                Text("If \(name) shows the same code, click Allow on the Mac.")
+            case let .entering(name):
+                Text("Type the code \(name) shows")
                     .font(.marking(15))
                     .foregroundStyle(Palette.ink.opacity(0.7))
-                    .multilineTextAlignment(.center)
-            case let .failed(message):
+                codeField(for: name)
+            case let .waiting(name):
+                Text("Checking with \(name)…")
+                    .font(.marking(17))
+                    .foregroundStyle(Palette.ink)
+            case let .failed(name, message):
                 Text(message)
                     .font(.marking(15))
                     .foregroundStyle(Palette.led)
                     .multilineTextAlignment(.center)
-                Button("Try again") { controller.cancelCodePairing() }
+                Button("Try again") { controller.choose(name) }
                     .font(.marking(17))
                     .foregroundStyle(Palette.ink)
             }
         }
+    }
+
+    private func codeField(for name: String) -> some View {
+        TextField("000000", text: $code)
+            .keyboardType(.numberPad)
+            .textContentType(.oneTimeCode)
+            .font(.system(size: 34, weight: .semibold, design: .monospaced))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(Palette.ink)
+            .frame(width: 200, height: 56)
+            .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.groove, lineWidth: 2))
+            .focused($focused)
+            .onAppear {
+                code = ""
+                focused = true
+            }
+            .onChange(of: code) { _, value in
+                let digits = String(value.filter(\.isNumber).prefix(CodePairing.digits))
+                if digits != value {
+                    code = digits
+                } else if digits.count == CodePairing.digits {
+                    focused = false
+                    controller.pairByCode(with: name, code: digits)
+                }
+            }
     }
 }
 
@@ -281,7 +306,22 @@ struct MacKeyStrip: View {
         ("end", KeyMap.end, "End"),
         ("pg↑", KeyMap.pageUp, "Page up"),
         ("pg↓", KeyMap.pageDown, "Page down"),
-    ] + KeyMap.function.enumerated().map { ("F\($0.offset + 1)", $0.element, "F\($0.offset + 1)") }
+    ]
+    // Without fn the top row shows what it does on a MacBook.
+    private let topRow: [(symbol: String?, name: String)] = [
+        ("sun.min", "Brightness down"),
+        ("sun.max", "Brightness up"),
+        ("rectangle.3.group", "Mission Control"),
+        ("magnifyingglass", "Spotlight"),
+        (nil, "F5"),
+        (nil, "F6"),
+        ("backward.fill", "Previous track"),
+        ("playpause.fill", "Play or pause"),
+        ("forward.fill", "Next track"),
+        ("speaker.slash.fill", "Mute"),
+        ("speaker.wave.1.fill", "Volume down"),
+        ("speaker.wave.3.fill", "Volume up"),
+    ]
     private let modifierKeys: [(label: String, modifier: KeyModifiers, name: String)] = [
         ("⌃", .control, "Control"),
         ("⌥", .option, "Option"),
@@ -299,8 +339,17 @@ struct MacKeyStrip: View {
         VStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
+                    let plain = controller.modifiers.contains(.function)
+                    cap("fn", name: "Function", lit: plain) { controller.toggle(.function) }
                     ForEach(extras, id: \.code) { key in
                         cap(key.label, name: key.name) { controller.press(key.code) }
+                    }
+                    ForEach(Array(KeyMap.function.enumerated()), id: \.element) { index, code in
+                        let key = topRow[index]
+                        let label = "F\(index + 1)"
+                        cap(label, symbol: plain ? nil : key.symbol, name: plain ? label : key.name) {
+                            controller.press(code)
+                        }
                     }
                 }
                 .padding(.horizontal, 14)
@@ -320,15 +369,20 @@ struct MacKeyStrip: View {
         }
     }
 
-    private func cap(_ label: String, name: String, lit: Bool = false, action: @escaping () -> Void) -> some View {
+    private func cap(_ label: String, symbol: String? = nil, name: String, lit: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(label)
-                .font(.marking(16))
-                .foregroundStyle(lit ? Palette.shellBottom : Palette.ink)
-                .padding(.horizontal, 10)
-                .frame(minWidth: 40, minHeight: height)
-                .background(lit ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
+            Group {
+                if let symbol {
+                    Image(systemName: symbol).font(.system(size: 15, weight: .medium))
+                } else {
+                    Text(label).font(.marking(16))
+                }
+            }
+            .foregroundStyle(lit ? Palette.shellBottom : Palette.ink)
+            .padding(.horizontal, 10)
+            .frame(minWidth: 40, minHeight: height)
+            .background(lit ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(name)
@@ -466,7 +520,7 @@ struct TouchpadDeck: View {
         }
         .padding(.horizontal, 14)
         .background(
-            KeyCapture(isActive: isTyping) { controller.type($0, text: $1) }
+            KeyCapture(isActive: isTyping, lineResets: controller.lineResets) { controller.type($0, text: $1) }
                 .frame(width: 1, height: 1)
                 .opacity(0)
         )

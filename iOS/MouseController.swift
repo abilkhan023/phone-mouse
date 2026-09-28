@@ -28,9 +28,9 @@ enum PointerMode: String, CaseIterable {
 final class MouseController {
     enum CodeState: Equatable {
         case idle
+        case entering(String)
         case waiting(String)
-        case comparing(String, code: String)
-        case failed(String)
+        case failed(String, message: String)
     }
 
     private(set) var hostName: String?
@@ -42,6 +42,8 @@ final class MouseController {
     private(set) var modifiers: KeyModifiers = []
     private(set) var nearbyHosts: [String] = []
     private(set) var codeState = CodeState.idle
+    // Changes when the typed line is erased, so the key capture starts over.
+    private(set) var lineResets = 0
     var isTyping = false
     var isPairing = false
 
@@ -143,27 +145,32 @@ final class MouseController {
         cancelCodePairing()
     }
 
-    func pairByCode(with name: String) {
+    func choose(_ name: String) {
         cancelCodePairing()
-        guard let host = link.host(named: name) else { return }
+        codeState = .entering(name)
+    }
+
+    func pairByCode(with name: String, code: String) {
+        codeClient?.cancel()
+        guard let host = link.host(named: name) else {
+            codeState = .failed(name, message: "\(name) is no longer in sight.")
+            return
+        }
         codeState = .waiting(name)
-        codeClient = CodePairingClient(
-            host: host,
-            peerToPeer: link.usesPeerToPeerNow,
-            onCode: { [weak self] in self?.codeState = .comparing(name, code: $0) },
-            completion: { [weak self] result in
-                guard let self else { return }
-                self.codeClient = nil
-                switch result {
-                case let .success(pairing):
-                    self.pair(with: pairing)
-                case .failure(.noAnswer):
-                    self.codeState = .failed("\(name) did not answer. Open Pair iPhone on the Mac and try again.")
-                case .failure(.mismatch):
-                    self.codeState = .failed("Could not verify \(name). Try again.")
-                }
+        codeClient = CodePairingClient(host: host, code: code, peerToPeer: link.usesPeerToPeerNow) { [weak self] result in
+            guard let self else { return }
+            self.codeClient = nil
+            switch result {
+            case let .success(pairing):
+                self.pair(with: pairing)
+            case .failure(.noAnswer):
+                self.codeState = .failed(name, message: "\(name) did not answer. Open Pair iPhone on the Mac.")
+            case .failure(.wrongCode):
+                self.codeState = .failed(name, message: "Wrong code. The Mac now shows a new one.")
+            case .failure(.mismatch):
+                self.codeState = .failed(name, message: "Could not verify \(name). Close the pairing window on the Mac, open it again and type the new code.")
             }
-        )
+        }
     }
 
     func cancelCodePairing() {
@@ -218,7 +225,7 @@ final class MouseController {
     }
 
     func type(_ kind: KeyEvent.Kind, text: String) {
-        if !modifiers.isEmpty, let key = strokeKey(kind, text: text) {
+        if !modifiers.subtracting(.function).isEmpty, let key = strokeKey(kind, text: text) {
             if key.shift { modifiers.insert(.shift) }
             press(key.code)
             return
@@ -233,9 +240,14 @@ final class MouseController {
         queue(KeyEvent(seq: 0, kind: kind, text: text))
     }
 
+    // Erasing the line erases the same text on the Mac, in one event.
     func clearTyped() {
+        guard !typed.isEmpty else { return }
+        queue(KeyEvent(seq: 0, kind: .backspace, text: String(typed.count)))
         typed = ""
+        lineResets += 1
         UserDefaults.standard.set(typed, forKey: Self.typedKey)
+        haptics.impactOccurred(intensity: 0.7)
     }
 
     // Key events wait in order until the Mac confirms them, so nothing typed

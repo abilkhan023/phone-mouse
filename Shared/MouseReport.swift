@@ -30,6 +30,8 @@ struct KeyEvent: Equatable {
 
     var seq: UInt32
     var kind: Kind
+    // For text, the characters. For backspace, how many times to press it;
+    // empty means once.
     var text = ""
     var keyCode: UInt8 = 0
     var modifiers: KeyModifiers = []
@@ -72,9 +74,12 @@ enum Packet: Equatable {
     case ack(UInt32)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
-    case pairReply(publicKey: Data, commitment: Data)
-    case pairNonce(Data)
-    case pairNonceReply(Data)
+    case pairReply(publicKey: Data)
+    case pairCommit(round: UInt8, Data)
+    case pairCommitReply(round: UInt8, Data)
+    case pairReveal(round: UInt8, Data)
+    case pairRevealReply(round: UInt8, Data)
+    case pairReject
 
     private static let mouseTag: UInt8 = 1
     private static let keyTag: UInt8 = 2
@@ -83,8 +88,11 @@ enum Packet: Equatable {
     private static let ackTag: UInt8 = 5
     private static let helloTag: UInt8 = 6
     private static let replyTag: UInt8 = 7
-    private static let nonceTag: UInt8 = 8
-    private static let nonceReplyTag: UInt8 = 9
+    private static let commitTag: UInt8 = 8
+    private static let commitReplyTag: UInt8 = 9
+    private static let revealTag: UInt8 = 10
+    private static let revealReplyTag: UInt8 = 11
+    private static let rejectTag: UInt8 = 12
     private static let field = 32
     private static let mouseSize = 22
     private static let keyHeader = 6
@@ -130,20 +138,23 @@ enum Packet: Equatable {
         case Self.ackTag:
             guard data.count == 5 else { return nil }
             self = .ack(data.readLittleEndian(at: 1))
-        case Self.replyTag:
-            guard data.count == 1 + 2 * Self.field else { return nil }
-            self = .pairReply(
-                publicKey: Data(data[data.startIndex + 1..<data.startIndex + 1 + Self.field]),
-                commitment: Data(data.suffix(Self.field))
-            )
-        case Self.helloTag, Self.nonceTag, Self.nonceReplyTag:
+        case Self.helloTag, Self.replyTag:
             guard data.count == 1 + Self.field else { return nil }
+            let key = Data(data.suffix(Self.field))
+            self = tag == Self.helloTag ? .pairHello(publicKey: key) : .pairReply(publicKey: key)
+        case Self.commitTag, Self.commitReplyTag, Self.revealTag, Self.revealReplyTag:
+            guard data.count == 2 + Self.field else { return nil }
+            let round = data[data.startIndex + 1]
             let value = Data(data.suffix(Self.field))
             switch tag {
-            case Self.helloTag: self = .pairHello(publicKey: value)
-            case Self.nonceTag: self = .pairNonce(value)
-            default: self = .pairNonceReply(value)
+            case Self.commitTag: self = .pairCommit(round: round, value)
+            case Self.commitReplyTag: self = .pairCommitReply(round: round, value)
+            case Self.revealTag: self = .pairReveal(round: round, value)
+            default: self = .pairRevealReply(round: round, value)
             }
+        case Self.rejectTag:
+            guard data.count == 1 else { return nil }
+            self = .pairReject
         default:
             return nil
         }
@@ -182,16 +193,23 @@ enum Packet: Equatable {
         case let .pairHello(publicKey):
             data.append(Self.helloTag)
             data.append(publicKey)
-        case let .pairReply(publicKey, commitment):
+        case let .pairReply(publicKey):
             data.append(Self.replyTag)
             data.append(publicKey)
-            data.append(commitment)
-        case let .pairNonce(nonce):
-            data.append(Self.nonceTag)
-            data.append(nonce)
-        case let .pairNonceReply(nonce):
-            data.append(Self.nonceReplyTag)
-            data.append(nonce)
+        case let .pairCommit(round, value):
+            data.append(contentsOf: [Self.commitTag, round])
+            data.append(value)
+        case let .pairCommitReply(round, value):
+            data.append(contentsOf: [Self.commitReplyTag, round])
+            data.append(value)
+        case let .pairReveal(round, value):
+            data.append(contentsOf: [Self.revealTag, round])
+            data.append(value)
+        case let .pairRevealReply(round, value):
+            data.append(contentsOf: [Self.revealReplyTag, round])
+            data.append(value)
+        case .pairReject:
+            data.append(Self.rejectTag)
         }
         return data
     }

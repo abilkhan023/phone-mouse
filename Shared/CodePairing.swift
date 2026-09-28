@@ -1,44 +1,51 @@
 import CryptoKit
 import Foundation
 
-// Pairing by comparing a six-digit code, the way Bluetooth numeric comparison
-// works.
+// Pairing by typing on the phone the six-digit code the Mac shows, done the
+// way Bluetooth passkey entry works.
 //
-// 1. Phone -> Mac: its public key.
-// 2. Mac -> phone: its public key and a commitment to a random Mac nonce.
-// 3. Phone -> Mac: a random phone nonce.
-// 4. Mac -> phone: the Mac nonce, which the phone checks against the commitment.
-//
-// Both sides then show a code made from both keys and both nonces, and the
-// user allows the pairing on the Mac only if the codes match. Someone in the
-// middle would have to pick keys and nonces that give the same code on both
-// ends, but the commitment makes the Mac's choice fixed before the phone's
-// nonce is known, so the chance is one in a million per try.
+// The two agree on a key with Curve25519, then prove to each other that they
+// know the code one bit per round. In each round both commit to the bit
+// before either reveals, and the phone reveals first. Someone in the middle
+// has to commit to a bit it does not know yet and is caught with even odds in
+// every round, so twenty rounds leave a chance of one in a million. A short
+// code cannot be worked out offline from what goes over the air, because each
+// commitment hides its bit behind a fresh random nonce. After any failure the
+// Mac shows a new code, so nothing learned carries over.
 enum CodePairing {
+    static let rounds = 20
+    static let digits = 6
+
+    static func newCode() -> String {
+        String(format: "%06d", Int.random(in: 0..<1_000_000))
+    }
+
     static func newNonce() -> Data {
         SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) }
     }
 
-    static func commitment(macNonce: Data, macKey: Data, phoneKey: Data) -> Data {
-        Data(HMAC<SHA256>.authenticationCode(for: macKey + phoneKey, using: SymmetricKey(data: macNonce)))
+    static func bit(of code: String, round: Int) -> UInt8 {
+        UInt8(((Int(code) ?? 0) >> round) & 1)
     }
 
-    static func commitmentIsValid(_ commitment: Data, macNonce: Data, macKey: Data, phoneKey: Data) -> Bool {
-        HMAC<SHA256>.isValidAuthenticationCode(commitment, authenticating: macKey + phoneKey, using: SymmetricKey(data: macNonce))
+    static func commitment(nonce: Data, ownKey: Data, otherKey: Data, round: Int, code: String) -> Data {
+        Data(HMAC<SHA256>.authenticationCode(for: message(ownKey, otherKey, round, code), using: SymmetricKey(data: nonce)))
     }
 
-    static func code(phoneKey: Data, macKey: Data, phoneNonce: Data, macNonce: Data) -> String {
-        let digest = Array(SHA256.hash(data: phoneKey + macKey + phoneNonce + macNonce))
-        let value = digest.prefix(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        return String(format: "%06d", value % 1_000_000)
+    static func commitmentIsValid(_ commitment: Data, nonce: Data, ownKey: Data, otherKey: Data, round: Int, code: String) -> Bool {
+        HMAC<SHA256>.isValidAuthenticationCode(commitment, authenticating: message(ownKey, otherKey, round, code), using: SymmetricKey(data: nonce))
     }
 
-    static func sessionKey(secret: SharedSecret, phoneKey: Data, macKey: Data, phoneNonce: Data, macNonce: Data) -> Data {
+    static func sessionKey(secret: SharedSecret, phoneKey: Data, macKey: Data) -> Data {
         secret.hkdfDerivedSymmetricKey(
             using: SHA256.self,
             salt: Data("phonemouse pairing".utf8),
-            sharedInfo: phoneKey + macKey + phoneNonce + macNonce,
+            sharedInfo: phoneKey + macKey,
             outputByteCount: 32
         ).withUnsafeBytes { Data($0) }
+    }
+
+    private static func message(_ ownKey: Data, _ otherKey: Data, _ round: Int, _ code: String) -> Data {
+        ownKey + otherKey + Data([UInt8(round), bit(of: code, round: round)])
     }
 }
