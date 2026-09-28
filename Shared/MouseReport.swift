@@ -77,10 +77,42 @@ struct GestureEvent: Equatable {
         case displaySleep
         case forceQuit
         case emoji
+        case findPointer
+        // The front app's next window, what ⌘` does.
+        case nextWindow
     }
 
     var seq: UInt32
     var kind: Kind
+}
+
+struct RunningApp: Codable, Equatable, Identifiable {
+    struct Window: Codable, Equatable {
+        var index: Int
+        var title: String
+        var minimized: Bool
+    }
+
+    var pid: Int32
+    var bundleID: String
+    var name: String
+    var active: Bool
+    var icon: Data?
+    var windows: [Window]
+
+    var id: Int32 { pid }
+}
+
+struct AppCommand: Codable, Equatable {
+    enum Kind: String, Codable {
+        case activate
+        case quit
+        case raiseWindow
+    }
+
+    var kind: Kind
+    var pid: Int32
+    var window: RunningApp.Window?
 }
 
 struct FrontApp: Equatable {
@@ -121,6 +153,16 @@ enum Packet: Equatable {
     case clipboard(ClipboardItem)
     // The app in front on the Mac and the title of its window.
     case frontApp(FrontApp)
+    // The app switcher: the phone asks, the Mac lists its apps and windows,
+    // and the phone picks one.
+    case appsRequest
+    case apps([RunningApp])
+    case appCommand(AppCommand)
+    // The mini screen: the phone turns frames on and off, the Mac sends JPEG
+    // frames of its main display, and a tap on one points there.
+    case screen(Bool)
+    case screenFrame(Data)
+    case pointAt(x: Float, y: Float, click: Bool)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -147,6 +189,12 @@ enum Packet: Equatable {
     private static let clipboardPortTag: UInt8 = 15
     private static let clipboardTag: UInt8 = 16
     private static let frontAppTag: UInt8 = 17
+    private static let appsRequestTag: UInt8 = 18
+    private static let appsTag: UInt8 = 19
+    private static let appCommandTag: UInt8 = 20
+    private static let screenTag: UInt8 = 21
+    private static let screenFrameTag: UInt8 = 22
+    private static let pointAtTag: UInt8 = 23
     private static let field = 32
     private static let mouseSize = 23
     private static let keyHeader = 6
@@ -201,6 +249,27 @@ enum Packet: Equatable {
         case Self.clipboardPortTag:
             guard data.count == 3 else { return nil }
             self = .clipboardPort(UInt16(data[data.startIndex + 1]) | UInt16(data[data.startIndex + 2]) << 8)
+        case Self.appsRequestTag:
+            guard data.count == 1 else { return nil }
+            self = .appsRequest
+        case Self.appsTag:
+            guard let apps = try? JSONDecoder().decode([RunningApp].self, from: data.dropFirst()) else { return nil }
+            self = .apps(apps)
+        case Self.appCommandTag:
+            guard let command = try? JSONDecoder().decode(AppCommand.self, from: data.dropFirst()) else { return nil }
+            self = .appCommand(command)
+        case Self.screenTag:
+            guard data.count == 2 else { return nil }
+            self = .screen(data[data.startIndex + 1] != 0)
+        case Self.screenFrameTag:
+            self = .screenFrame(Data(data.dropFirst()))
+        case Self.pointAtTag:
+            guard data.count == 10 else { return nil }
+            self = .pointAt(
+                x: Float(bitPattern: data.readLittleEndian(at: 1)),
+                y: Float(bitPattern: data.readLittleEndian(at: 5)),
+                click: data[data.startIndex + 9] != 0
+            )
         case Self.frontAppTag:
             let fields = String(decoding: data.dropFirst(), as: UTF8.self).components(separatedBy: FrontApp.separator)
             guard fields.count == 3 else { return nil }
@@ -269,6 +338,24 @@ enum Packet: Equatable {
             data.appendLittleEndian(id)
         case let .clipboardPort(port):
             data.append(contentsOf: [Self.clipboardPortTag, UInt8(port & 0xff), UInt8(port >> 8)])
+        case .appsRequest:
+            data.append(Self.appsRequestTag)
+        case let .apps(apps):
+            data.append(Self.appsTag)
+            data.append((try? JSONEncoder().encode(apps)) ?? Data())
+        case let .appCommand(command):
+            data.append(Self.appCommandTag)
+            data.append((try? JSONEncoder().encode(command)) ?? Data())
+        case let .screen(on):
+            data.append(contentsOf: [Self.screenTag, on ? 1 : 0])
+        case let .screenFrame(jpeg):
+            data.append(Self.screenFrameTag)
+            data.append(jpeg)
+        case let .pointAt(x, y, click):
+            data.append(Self.pointAtTag)
+            data.appendLittleEndian(x.bitPattern)
+            data.appendLittleEndian(y.bitPattern)
+            data.append(click ? 1 : 0)
         case let .frontApp(app):
             data.append(Self.frontAppTag)
             data.append(contentsOf: [app.bundleID, app.name, String(app.title.prefix(FrontApp.titleLimit))]

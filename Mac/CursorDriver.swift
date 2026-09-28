@@ -51,6 +51,19 @@ final class CursorDriver {
         startSmoothing()
     }
 
+    // Puts the cursor at a point picked on the phone's mini screen, and
+    // clicks there if asked.
+    func jump(to point: CGPoint, click: Bool) {
+        stopMomentum()
+        flush()
+        position = clamp(point)
+        lastPostAt = ProcessInfo.processInfo.systemUptime
+        post(buttons.contains(.left) ? .leftMouseDragged : .mouseMoved, button: .left)
+        guard click, buttons.isEmpty else { return }
+        setButtons(.left)
+        setButtons([])
+    }
+
     func releaseButtons() {
         flush()
         setButtons([])

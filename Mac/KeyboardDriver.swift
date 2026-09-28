@@ -152,6 +152,7 @@ final class KeyboardDriver {
         case .screenshotArea: run("/usr/sbin/screencapture", ["-i", screenshotPath()])
         case .screenshotTools: open("/System/Applications/Utilities/Screenshot.app")
         case .displaySleep: run("/usr/bin/pmset", ["displaysleepnow"])
+        case .findPointer, .nextWindow: break
         }
     }
 

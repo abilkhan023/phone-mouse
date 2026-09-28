@@ -53,7 +53,8 @@ cursor stops, and it starts again after the phone has rested on the desk for a
 moment.
 
 **Touchpad.** Drag to move, tap to click, tap with two fingers for a right
-click, drag with two fingers to scroll. Two buttons under the pad are there for
+click, drag with two fingers to scroll. Tap and then touch again and slide to
+drag, as on a Mac trackpad. Two buttons under the pad are there for
 dragging. The keyboard button between them opens the iPhone keyboard: what you
 type is sent to the Mac and echoed on the phone.
 
@@ -61,12 +62,20 @@ Scrolling on the touchpad behaves like a Mac trackpad: the page bounces at the
 edges, two fingers sideways go back and forward in Safari and Finder, and after
 the fingers lift the page glides on and slows down.
 
-**Remote.** Three pages. Media: play, pause, tracks, volume and brightness.
+**Remote.** Five pages. Media: play, pause, tracks, volume and brightness.
 Slides: big previous and next buttons, the volume buttons turn slides like a
 presenter clicker, and holding the pointer button steers the cursor with the
-phone as a laser pointer. Actions: lock the screen, sleep the display,
-screenshots, Mission Control, show the desktop, Apps, emoji, force quit, and
-sending the clipboard.
+phone as a laser pointer. Apps: every app open on the Mac with its windows; a
+tap brings an app forward or raises one particular window, a swipe quits the
+app, and Next window does what ⌘` does. Screen: a live picture of the Mac's main
+display, a few frames a second; a tap there moves the cursor to that spot and
+clicks. The Mac asks once for permission to record the screen. Actions: find
+the pointer, next window, lock the screen, sleep the display, screenshots,
+Mission Control, show the desktop, Apps, emoji, force quit, and sending the
+clipboard.
+
+**Find the pointer.** Shake the phone and a ring pulses around the cursor on the
+Mac for a moment.
 
 **Clipboard.** Text and images copied on the Mac show up on the phone's
 clipboard. To send the phone's clipboard to the Mac, tap the paste button in

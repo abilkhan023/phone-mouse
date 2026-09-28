@@ -2,8 +2,8 @@ import Foundation
 import Network
 
 // One TCP connection that carries sealed packets as frames: a four-byte
-// length followed by the sealed bytes. Used for the clipboard, whose images
-// are too big for datagrams.
+// length followed by the sealed bytes. Used for whatever is too big for a
+// datagram: the clipboard, the app list with icons, mini screen frames.
 final class ClipboardStream {
     var onPacket: ((Packet) -> Void)?
     var onClose: (() -> Void)?
@@ -32,12 +32,19 @@ final class ClipboardStream {
         readFrame()
     }
 
-    func send(_ packet: Packet) {
-        guard !closed, let body = seal(packet) else { return }
+    // The completion runs once the frame has gone out, which lets a sender of
+    // many frames pace itself.
+    func send(_ packet: Packet, completion: (() -> Void)? = nil) {
+        guard !closed, let body = seal(packet) else {
+            completion?()
+            return
+        }
         var frame = Data()
         Swift.withUnsafeBytes(of: UInt32(body.count).littleEndian) { frame.append(contentsOf: $0) }
         frame.append(body)
-        connection.send(content: frame, completion: .contentProcessed { _ in })
+        connection.send(content: frame, completion: .contentProcessed { _ in
+            DispatchQueue.main.async { completion?() }
+        })
     }
 
     func close() {

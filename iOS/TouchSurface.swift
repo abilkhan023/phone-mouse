@@ -7,6 +7,7 @@ struct TouchSurface: UIViewRepresentable {
     let onTap: (Int) -> Void
     let onGesture: (GestureEvent.Kind) -> Void
     let onScrollState: (Bool) -> Void
+    let onDrag: (Bool) -> Void
 
     func makeUIView(context: Context) -> TouchSurfaceView {
         let view = TouchSurfaceView()
@@ -21,6 +22,7 @@ struct TouchSurface: UIViewRepresentable {
         view.onTap = onTap
         view.onGesture = onGesture
         view.onScrollState = onScrollState
+        view.onDrag = onDrag
     }
 }
 
@@ -30,6 +32,7 @@ final class TouchSurfaceView: UIView {
     var onTap: ((Int) -> Void)?
     var onGesture: ((GestureEvent.Kind) -> Void)?
     var onScrollState: ((Bool) -> Void)?
+    var onDrag: ((Bool) -> Void)?
 
     private let tapDuration = 0.25
     private let tapTravel: CGFloat = 10
@@ -45,6 +48,17 @@ final class TouchSurfaceView: UIView {
     private var startSpread: CGFloat = 0
     private var fired = false
     private var zooming = false
+    private let dragWindow = 0.3
+    private var lastTapAt: TimeInterval = 0
+    // A touch that lands right after a tap may turn into a drag once it moves.
+    private var mayDrag = false
+    private var dragging = false {
+        didSet {
+            if dragging != oldValue {
+                onDrag?(dragging)
+            }
+        }
+    }
     // Two fingers resting in a scroll; the Mac glides on when this ends.
     private var scrolling = false {
         didSet {
@@ -59,6 +73,7 @@ final class TouchSurfaceView: UIView {
             startedAt = event?.timestamp ?? 0
             travel = 0
             fingers = 0
+            mayDrag = startedAt - lastTapAt < dragWindow
         }
         active.formUnion(touches)
         fingers = max(fingers, active.count)
@@ -146,6 +161,9 @@ final class TouchSurfaceView: UIView {
                 onScroll?(delta)
             }
         } else if active.count == 1, fingers == 1 {
+            if mayDrag, !dragging, travel > tapTravel / 2 {
+                dragging = true
+            }
             onMove?(delta)
         }
     }
@@ -160,12 +178,18 @@ final class TouchSurfaceView: UIView {
         defer {
             fired = false
             zooming = false
+            mayDrag = false
+        }
+        if dragging {
+            dragging = false
+            return
         }
         guard !fired, !zooming, time - startedAt < tapDuration, travel < tapTravel else { return }
         if fingers >= 3 {
             onGesture?(.lookUp)
         } else {
             onTap?(fingers)
+            lastTapAt = fingers == 1 ? time : 0
         }
     }
 
@@ -178,6 +202,8 @@ final class TouchSurfaceView: UIView {
         if active.isEmpty {
             fired = false
             zooming = false
+            mayDrag = false
+            dragging = false
         }
     }
 }

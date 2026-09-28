@@ -67,6 +67,9 @@ final class HostController {
 
     private let driver = CursorDriver()
     private let keyboard = KeyboardDriver()
+    private let switcher = AppSwitcher()
+    private let finder = PointerFinder()
+    private let streamer = ScreenStreamer()
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
     private let offerLimit = 8
@@ -91,6 +94,13 @@ final class HostController {
         lastCounter = UInt64(UserDefaults.standard.string(forKey: Self.counterKey) ?? "") ?? 0
         savedCounter = lastCounter
         enableLoginOnce()
+        streamer.send = { [weak self] jpeg, done in
+            guard let stream = self?.clipStream else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: done)
+                return
+            }
+            stream.send(.screenFrame(jpeg), completion: done)
+        }
         startListener()
         startClipboardListener()
         startWatchdog()
@@ -195,6 +205,8 @@ final class HostController {
             }
             if case let .clipboard(item) = packet {
                 self.paste(item)
+            } else {
+                self.control(packet)
             }
         }
         stream.onClose = { [weak self, weak stream] in
@@ -202,12 +214,37 @@ final class HostController {
             self.clipPending.removeAll { $0 === stream }
             if self.clipStream === stream {
                 self.clipStream = nil
+                self.streamer.stop()
             }
         }
         clipPending.append(stream)
         if clipPending.count > pendingLimit {
             clipPending.removeFirst().close()
         }
+    }
+
+    // Requests from the remote's Apps and Screen pages. They may come over
+    // either connection; answers with icons or frames go over TCP.
+    private func control(_ packet: Packet) {
+        switch packet {
+        case .appsRequest:
+            sendApps()
+        case let .appCommand(command):
+            switcher.perform(command)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.sendApps() }
+        case let .screen(on):
+            streamer.request(on)
+        case let .pointAt(x, y, click):
+            let bounds = CGDisplayBounds(CGMainDisplayID())
+            let point = CGPoint(x: bounds.minX + CGFloat(x) * bounds.width, y: bounds.minY + CGFloat(y) * bounds.height)
+            driver.jump(to: point, click: click)
+        default:
+            break
+        }
+    }
+
+    private func sendApps() {
+        clipStream?.send(.apps(switcher.apps()))
     }
 
     private func paste(_ item: ClipboardItem) {
@@ -321,7 +358,7 @@ final class HostController {
             case let .volume(event): handle(event)
             case let .gesture(event): handle(event)
             case let .ping(id): send(.pong(id), on: connection)
-            default: break
+            default: control(packet)
             }
             return
         }
@@ -498,7 +535,11 @@ final class HostController {
     private func handle(_ event: GestureEvent) {
         if let lastGestureSeq, Int32(bitPattern: event.seq &- lastGestureSeq) <= 0 { return }
         lastGestureSeq = event.seq
-        keyboard.apply(event)
+        switch event.kind {
+        case .findPointer: finder.show()
+        case .nextWindow: switcher.nextWindow()
+        default: keyboard.apply(event)
+        }
     }
 
     private func check() {

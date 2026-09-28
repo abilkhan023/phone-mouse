@@ -13,6 +13,8 @@ struct RemoteDeck: View {
             switch controller.remoteTab {
             case .media: MediaPad(controller: controller)
             case .slides: SlidesPad(controller: controller)
+            case .apps: AppsPad(controller: controller)
+            case .screen: ScreenPad(controller: controller)
             case .actions: ActionsPad(controller: controller)
             }
         }
@@ -86,10 +88,136 @@ private struct SlidesPad: View {
     }
 }
 
+// Apps open on the Mac with their windows. A tap on an app brings it forward,
+// a tap on a window raises that window, a swipe quits the app.
+private struct AppsPad: View {
+    let controller: MouseController
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                RemoteButton(symbol: "macwindow.on.rectangle", name: "Next window ⌘`", height: 64, caption: true) {
+                    controller.gesture(.nextWindow)
+                }
+                RemoteButton(symbol: "scope", name: "Find pointer", height: 64, caption: true) {
+                    controller.gesture(.findPointer)
+                }
+            }
+            List {
+                ForEach(controller.apps) { app in
+                    Button { controller.perform(AppCommand(kind: .activate, pid: app.pid)) } label: {
+                        HStack(spacing: 12) {
+                            icon(app)
+                            Text(app.name)
+                                .font(.marking(16))
+                                .foregroundStyle(Palette.ink)
+                            Spacer()
+                            if app.active {
+                                Circle().fill(Palette.led).frame(width: 8, height: 8)
+                            }
+                        }
+                    }
+                    .swipeActions {
+                        Button("Quit", role: .destructive) { controller.perform(AppCommand(kind: .quit, pid: app.pid)) }
+                    }
+                    .listRowBackground(Palette.pressed)
+                    ForEach(app.windows, id: \.index) { window in
+                        Button {
+                            controller.perform(AppCommand(kind: .raiseWindow, pid: app.pid, window: window))
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: window.minimized ? "minus.rectangle" : "macwindow")
+                                    .font(.system(size: 13))
+                                Text(window.title)
+                                    .font(.marking(14))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(Palette.ink.opacity(0.7))
+                            .padding(.leading, 44)
+                        }
+                        .listRowBackground(Palette.pressed.opacity(0.6))
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay {
+                if controller.apps.isEmpty {
+                    Text("Loading the Mac's apps…")
+                        .font(.marking(15))
+                        .foregroundStyle(Palette.ink.opacity(0.6))
+                }
+            }
+            .refreshable { controller.requestApps() }
+        }
+        .onAppear { controller.requestApps() }
+    }
+
+    @ViewBuilder
+    private func icon(_ app: RunningApp) -> some View {
+        if let data = app.icon, let image = UIImage(data: data) {
+            Image(uiImage: image).resizable().frame(width: 32, height: 32)
+        } else {
+            Image(systemName: "app").font(.system(size: 26)).frame(width: 32, height: 32)
+        }
+    }
+}
+
+// A live picture of the Mac's main display. A tap points there, and clicks
+// unless that is switched off.
+private struct ScreenPad: View {
+    let controller: MouseController
+    @State private var clicks = true
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
+                if let image = controller.screenImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .overlay {
+                            GeometryReader { box in
+                                Color.clear
+                                    .contentShape(Rectangle())
+                                    .gesture(SpatialTapGesture().onEnded { tap in
+                                        controller.point(
+                                            atX: tap.location.x / box.size.width,
+                                            y: tap.location.y / box.size.height,
+                                            click: clicks
+                                        )
+                                    })
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(6)
+                } else {
+                    Text("Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.")
+                        .font(.marking(14))
+                        .foregroundStyle(Palette.ink.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(24)
+                }
+            }
+            Picker("A tap", selection: $clicks) {
+                Text("Tap moves and clicks").tag(true)
+                Text("Tap only moves").tag(false)
+            }
+            .pickerStyle(.segmented)
+        }
+        .onAppear { controller.watchScreen(true) }
+        .onDisappear { controller.watchScreen(false) }
+    }
+}
+
 private struct ActionsPad: View {
     let controller: MouseController
 
     private let actions: [(symbol: String, name: String, detail: String, kind: GestureEvent.Kind)] = [
+        ("scope", "Find the pointer", "Rings the cursor on the Mac. Shaking the phone does it too.", .findPointer),
+        ("macwindow.on.rectangle", "Next window", "Brings the front app's next window forward, like ⌘`.", .nextWindow),
         ("lock.fill", "Lock screen", "Locks the Mac; unlock it with your password.", .lockScreen),
         ("moon.fill", "Display sleep", "Turns the screen off. Move the pointer to wake it.", .displaySleep),
         ("camera.viewfinder", "Screenshot", "Saves the whole screen as a picture on the Desktop.", .screenshot),

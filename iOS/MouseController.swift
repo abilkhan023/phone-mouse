@@ -39,12 +39,16 @@ enum PointerMode: String, CaseIterable {
 enum RemoteTab: String, CaseIterable {
     case media
     case slides
+    case apps
+    case screen
     case actions
 
     var title: String {
         switch self {
         case .media: "Media"
         case .slides: "Slides"
+        case .apps: "Apps"
+        case .screen: "Screen"
         case .actions: "Actions"
         }
     }
@@ -72,6 +76,8 @@ final class MouseController {
     private(set) var notice: String?
     // What is open on the Mac right now.
     private(set) var frontApp: FrontApp?
+    private(set) var apps: [RunningApp] = []
+    private(set) var screenImage: UIImage?
     var remoteTab: RemoteTab {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
@@ -113,6 +119,9 @@ final class MouseController {
     @ObservationIgnored private var touchScrolling = false
     // What dictation has typed on the Mac in this session.
     @ObservationIgnored private var dictated = ""
+    @ObservationIgnored private var screenTimer: Timer?
+    @ObservationIgnored private var shakes: [TimeInterval] = []
+    @ObservationIgnored private var lastShakeAt: TimeInterval = 0
     @ObservationIgnored private var laserHeld = false
     @ObservationIgnored private var pingID: UInt32 = 0
     @ObservationIgnored private var pingSentAt: [UInt32: TimeInterval] = [:]
@@ -144,6 +153,10 @@ final class MouseController {
     private let resendBatch = 32
     private let tapLimit = 0.3
     private let pingTicks = 100
+    private let shakeForce = 2.2
+    private let shakeWindow = 0.8
+    private let shakeCount = 3
+    private let shakeGap = 0.08
     private let latencyWeight = 0.3
 
     init() {
@@ -192,6 +205,9 @@ final class MouseController {
         send(motion: nil)
         releaseAllModifiers()
         dictation.stop()
+        screenTimer?.invalidate()
+        screenTimer = nil
+        screenImage = nil
         link.stop()
         setLinked(false)
         cancelCodePairing()
@@ -259,6 +275,41 @@ final class MouseController {
             return
         }
         show(link.sendClipboard(item) ? "Sent to the Mac clipboard" : "Not connected to a Mac yet")
+    }
+
+    func requestApps() {
+        link.sendReliably(.appsRequest)
+    }
+
+    func perform(_ command: AppCommand) {
+        link.sendReliably(.appCommand(command))
+        haptics.impactOccurred(intensity: 0.6)
+    }
+
+    // Frames come while the mini screen is on view; the request is repeated
+    // so the Mac stops by itself if the phone goes away.
+    func watchScreen(_ on: Bool) {
+        screenTimer?.invalidate()
+        screenTimer = nil
+        link.sendReliably(.screen(on))
+        guard on else {
+            screenImage = nil
+            return
+        }
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.link.sendReliably(.screen(true)) }
+        RunLoop.main.add(timer, forMode: .common)
+        screenTimer = timer
+    }
+
+    func point(atX x: Double, y: Double, click: Bool) {
+        link.sendReliably(.pointAt(x: Float(x), y: Float(y), click: click))
+        haptics.impactOccurred(intensity: click ? 0.8 : 0.4)
+    }
+
+    // Double tap and drag on the touchpad holds the button down while the
+    // finger moves.
+    func setDragging(_ dragging: Bool) {
+        setButton(.left, pressed: dragging)
     }
 
     func announce(_ text: String) {
@@ -495,8 +546,19 @@ final class MouseController {
         case let .frontApp(app):
             let switched = app.bundleID != frontApp?.bundleID
             frontApp = app
-            if switched, mode == .remote, let tab = Self.remoteTab(for: app) {
+            if switched, mode == .remote, [.media, .slides].contains(remoteTab), let tab = Self.remoteTab(for: app) {
                 remoteTab = tab
+            }
+            if switched, mode == .remote, remoteTab == .apps {
+                requestApps()
+            }
+            return
+        case let .apps(list):
+            apps = list
+            return
+        case let .screenFrame(jpeg):
+            if screenTimer != nil {
+                screenImage = UIImage(data: jpeg)
             }
             return
         case let .pong(id):
@@ -632,6 +694,9 @@ final class MouseController {
             pingSentAt[pingID] = ProcessInfo.processInfo.systemUptime
             link.send(.ping(pingID))
         }
+        if let motion {
+            detectShake(motion)
+        }
         var report = MouseReport(seq: seq, buttons: buttons)
         seq &+= 1
         let delta = pointerDelta(for: motion)
@@ -684,6 +749,20 @@ final class MouseController {
             let gain = deskGain * min(1 + speed / deskBoostSpeed, deskBoostLimit)
             return CGPoint(x: shift.x * gain, y: -shift.y * gain)
         }
+    }
+
+    // A few hard jolts in a row light up the cursor on the Mac. The desk
+    // mode is left out, where sliding the phone is the point.
+    private func detectShake(_ motion: CMDeviceMotion) {
+        guard mode != .desk, isLinked else { return }
+        let force = hypot(hypot(motion.userAcceleration.x, motion.userAcceleration.y), motion.userAcceleration.z)
+        let now = motion.timestamp
+        guard force > shakeForce, now - (shakes.last ?? 0) > shakeGap else { return }
+        shakes = shakes.filter { now - $0 < shakeWindow } + [now]
+        guard shakes.count >= shakeCount, now - lastShakeAt > 2 else { return }
+        shakes = []
+        lastShakeAt = now
+        gesture(.findPointer)
     }
 
     private func airStep(_ motion: CMDeviceMotion, dt: Double) -> CGPoint {

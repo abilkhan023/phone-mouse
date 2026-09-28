@@ -67,6 +67,16 @@ final class HostLink {
         return true
     }
 
+    // Over TCP when that connection is up, so the answer can come back the
+    // same way; otherwise as a datagram.
+    func sendReliably(_ packet: Packet) {
+        if let clipStream {
+            clipStream.send(packet)
+        } else {
+            send(packet)
+        }
+    }
+
     private func seal(_ packet: Packet) -> Data? {
         guard let channel else { return nil }
         counter = SecureChannel.counter(after: counter)
