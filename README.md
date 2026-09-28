@@ -23,6 +23,11 @@ mouse does. Because the button state travels in every report, a lost packet
 cannot leave a button stuck. If the phone goes silent for half a second, the
 companion releases the buttons on its own.
 
+On a shared Wi-Fi network the two talk through the router only. Peer-to-peer
+Wi-Fi makes the radio hop between channels and adds jitter, so the phone falls
+back to it only when it cannot find the Mac on the network. The Mac smooths out
+reports that arrive in bursts.
+
 The connection works over a USB cable, over a shared Wi-Fi network, or directly
 between the two devices. Over a cable the measured delay from sensor sample to
 the Mac is about 5 ms.
@@ -50,6 +55,23 @@ moment.
 click, drag with two fingers to scroll. Two buttons under the pad are there for
 dragging. The keyboard button between them opens the iPhone keyboard: what you
 type is sent to the Mac and echoed on the phone.
+
+**Keyboard.** Above the iPhone keyboard sits a row of Mac keys that iOS lacks:
+esc, tab, forward delete, home, end, page up and down, F1 to F12, the arrows,
+and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘ then C
+copies. Shortcuts work with the Russian keyboard too.
+
+**Volume.** While connected, the phone's volume buttons change the Mac's volume.
+The phone's own volume stays where it was.
+
+## Pairing and encryption
+
+The first time the Mac companion starts it opens a window with a QR code. Scan
+it with the phone. The code carries a random 256-bit key, and every packet is
+encrypted and signed with it (ChaCha20-Poly1305). The Mac ignores anything that
+was not sealed with that key and any packet it has already seen, so nobody else
+on the network can move the cursor or type. To pair again, choose Pair iPhone in
+the menu. New code there unpairs the old phone.
 
 ## Requirements
 

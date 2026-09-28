@@ -1,0 +1,140 @@
+import CryptoKit
+import Foundation
+import Security
+
+// Every packet is sealed with ChaCha20-Poly1305 under a key that the two
+// devices share after pairing. The nonce carries a counter that only grows,
+// so the Mac drops anything forged, altered or replayed.
+struct SecureChannel {
+    private static let tag: UInt8 = 0xE1
+    private static let counterSize = 8
+    private static let overhead = 1 + counterSize + 16
+
+    let key: SymmetricKey
+
+    func seal(_ packet: Packet, counter: UInt64) -> Data? {
+        guard let box = try? ChaChaPoly.seal(packet.encoded(), using: key, nonce: Self.nonce(counter)) else { return nil }
+        var data = Data([Self.tag])
+        Swift.withUnsafeBytes(of: counter.littleEndian) { data.append(contentsOf: $0) }
+        data.append(box.ciphertext)
+        data.append(box.tag)
+        return data
+    }
+
+    func open(_ data: Data) -> (packet: Packet, counter: UInt64)? {
+        guard data.count > Self.overhead, data.first == Self.tag else { return nil }
+        var counter: UInt64 = 0
+        Swift.withUnsafeMutableBytes(of: &counter) {
+            $0.copyBytes(from: data[data.startIndex + 1..<data.startIndex + 1 + Self.counterSize])
+        }
+        counter = UInt64(littleEndian: counter)
+        let body = data.dropFirst(1 + Self.counterSize)
+        guard let box = try? ChaChaPoly.SealedBox(
+                nonce: Self.nonce(counter),
+                ciphertext: body.dropLast(16),
+                tag: body.suffix(16)
+              ),
+              let plain = try? ChaChaPoly.open(box, using: key),
+              let packet = Packet(data: plain) else { return nil }
+        return (packet, counter)
+    }
+
+    private static func nonce(_ counter: UInt64) -> ChaChaPoly.Nonce {
+        var bytes = [UInt8](repeating: 0, count: 12)
+        Swift.withUnsafeBytes(of: counter.littleEndian) { bytes.replaceSubrange(4..<12, with: $0) }
+        return try! ChaChaPoly.Nonce(data: bytes)
+    }
+}
+
+// The pairing code holds the Mac's Bonjour name and the shared key. The Mac
+// shows it as a QR code and the phone scans it once.
+struct Pairing: Equatable {
+    private static let scheme = "phonemouse"
+
+    let hostName: String
+    let keyData: Data
+
+    var key: SymmetricKey { SymmetricKey(data: keyData) }
+
+    static func generate(hostName: String) -> Pairing {
+        Pairing(hostName: hostName, keyData: SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) })
+    }
+
+    init(hostName: String, keyData: Data) {
+        self.hostName = hostName
+        self.keyData = keyData
+    }
+
+    init?(code: String) {
+        guard let url = URLComponents(string: code),
+              url.scheme == Self.scheme,
+              let items = url.queryItems,
+              let name = items.first(where: { $0.name == "host" })?.value,
+              let encoded = items.first(where: { $0.name == "key" })?.value,
+              let key = Data(base64URL: encoded),
+              key.count == 32 else { return nil }
+        self.init(hostName: name, keyData: key)
+    }
+
+    var code: String {
+        var url = URLComponents()
+        url.scheme = Self.scheme
+        url.host = "pair"
+        url.queryItems = [
+            URLQueryItem(name: "host", value: hostName),
+            URLQueryItem(name: "key", value: keyData.base64URL),
+        ]
+        return url.string ?? ""
+    }
+}
+
+enum PairingStore {
+    private static let service = "PhoneMouse.pairing"
+
+    static func load() -> Pairing? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecReturnData as String: true,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data,
+              let code = String(data: data, encoding: .utf8) else { return nil }
+        return Pairing(code: code)
+    }
+
+    static func save(_ pairing: Pairing) {
+        clear()
+        let item: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: Data(pairing.code.utf8),
+        ]
+        SecItemAdd(item as CFDictionary, nil)
+    }
+
+    static func clear() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
+private extension Data {
+    init?(base64URL: String) {
+        var text = base64URL.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        text += String(repeating: "=", count: (4 - text.count % 4) % 4)
+        self.init(base64Encoded: text)
+    }
+
+    var base64URL: String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}

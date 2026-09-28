@@ -1,5 +1,10 @@
 import SwiftUI
 
+extension Animation {
+    // The curve iOS moves its keyboard with, so the layout travels with it.
+    static let keyboard = Animation.interpolatingSpring(mass: 3, stiffness: 1000, damping: 500)
+}
+
 struct ContentView: View {
     let controller: MouseController
     @Environment(\.scenePhase) private var scenePhase
@@ -11,6 +16,9 @@ struct ContentView: View {
             let screenHeight = safeArea.size.height + insets.top + insets.bottom
             let keyboardHeight = max(screenHeight - keyboardTop, insets.bottom)
             ZStack(alignment: .top) {
+                VolumeKeysView(keys: controller.volumeKeys)
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
                 Shell(lit: controller.hostName != nil)
                 VStack(spacing: 0) {
                     Group {
@@ -21,10 +29,13 @@ struct ContentView: View {
                     }
                     .padding(.top, insets.top + 60)
                     if controller.isTyping {
-                        TypedLine(text: controller.typed)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .padding(.bottom, keyboardHeight)
+                        VStack(spacing: 8) {
+                            MacKeyStrip(controller: controller)
+                            TypedLine(text: controller.typed)
+                                .padding(.horizontal, 14)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.bottom, keyboardHeight)
                     } else {
                         Hint(mode: controller.mode)
                             .frame(height: 76)
@@ -33,13 +44,16 @@ struct ContentView: View {
                 }
                 StatusBar(controller: controller)
                     .padding(.top, insets.top)
+                if controller.isPairing {
+                    PairingSheet(controller: controller)
+                }
             }
             .ignoresSafeArea()
         }
         .ignoresSafeArea(.keyboard)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
             guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(.keyboard) {
                 keyboardTop = frame.minY
             }
         }
@@ -85,6 +99,16 @@ struct StatusBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Button {
+                controller.isPairing = true
+            } label: {
+                Image(systemName: "qrcode.viewfinder")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Pair with a Mac")
             Text(controller.hostName ?? "Looking for your Mac…")
                 .font(.marking(15))
                 .foregroundStyle(Palette.ink)
@@ -126,6 +150,36 @@ struct ModeSwitch: View {
     }
 }
 
+struct PairingSheet: View {
+    let controller: MouseController
+
+    var body: some View {
+        ZStack {
+            Palette.shellBottom
+            VStack(spacing: 20) {
+                Text("Pair with your Mac")
+                    .font(.marking(22))
+                    .foregroundStyle(Palette.ink)
+                Text("On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.")
+                    .font(.marking(15))
+                    .foregroundStyle(Palette.ink.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                PairingScanner { controller.pair(with: $0) }
+                    .frame(width: 260, height: 260)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Palette.groove, lineWidth: 2))
+                if controller.pairing != nil {
+                    Button("Cancel") { controller.isPairing = false }
+                        .font(.marking(17))
+                        .foregroundStyle(Palette.ink)
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
 struct Hint: View {
     let mode: PointerMode
 
@@ -137,6 +191,73 @@ struct Hint: View {
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .allowsHitTesting(false)
+    }
+}
+
+struct MacKeyStrip: View {
+    let controller: MouseController
+
+    private let height: CGFloat = 38
+    private let extras: [(label: String, code: UInt8, name: String)] = [
+        ("esc", KeyMap.escape, "Escape"),
+        ("⇥", KeyMap.tab, "Tab"),
+        ("⌦", KeyMap.forwardDelete, "Forward delete"),
+        ("home", KeyMap.home, "Home"),
+        ("end", KeyMap.end, "End"),
+        ("pg↑", KeyMap.pageUp, "Page up"),
+        ("pg↓", KeyMap.pageDown, "Page down"),
+    ] + KeyMap.function.enumerated().map { ("F\($0.offset + 1)", $0.element, "F\($0.offset + 1)") }
+    private let modifierKeys: [(label: String, modifier: KeyModifiers, name: String)] = [
+        ("⌃", .control, "Control"),
+        ("⌥", .option, "Option"),
+        ("⌘", .command, "Command"),
+        ("⇧", .shift, "Shift"),
+    ]
+    private let arrows: [(label: String, code: UInt8, name: String)] = [
+        ("←", KeyMap.left, "Left arrow"),
+        ("↑", KeyMap.up, "Up arrow"),
+        ("↓", KeyMap.down, "Down arrow"),
+        ("→", KeyMap.right, "Right arrow"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(extras, id: \.code) { key in
+                        cap(key.label, name: key.name) { controller.press(key.code) }
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+            HStack(spacing: 6) {
+                ForEach(modifierKeys, id: \.modifier.rawValue) { key in
+                    cap(key.label, name: key.name, lit: controller.modifiers.contains(key.modifier)) {
+                        controller.toggle(key.modifier)
+                    }
+                }
+                Spacer(minLength: 6)
+                ForEach(arrows, id: \.code) { key in
+                    cap(key.label, name: key.name) { controller.press(key.code) }
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    private func cap(_ label: String, name: String, lit: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.marking(16))
+                .foregroundStyle(lit ? Palette.shellBottom : Palette.ink)
+                .padding(.horizontal, 10)
+                .frame(minWidth: 40, minHeight: height)
+                .background(lit ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(lit ? .isSelected : [])
     }
 }
 
@@ -220,7 +341,9 @@ struct TouchpadDeck: View {
             HStack(spacing: 10) {
                 key(isPressed: leftPressed, pressed: $leftPressed, label: "Left button")
                 Button {
-                    controller.isTyping.toggle()
+                    withAnimation(.keyboard) {
+                        controller.isTyping.toggle()
+                    }
                 } label: {
                     Image(systemName: isTyping ? "keyboard.chevron.compact.down" : "keyboard")
                         .font(.system(size: 22, weight: .medium))

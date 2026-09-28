@@ -4,21 +4,85 @@ final class CursorDriver {
     private let source = CGEventSource(stateID: .hidSystemState)
     private let resyncInterval = 0.1
     private let multiClickDistance = 12.0
+    private let smoothRate = 1.0 / 240
+    private let reportInterval = 0.01
+    private let minLag = 0.004
+    private let maxLag = 0.025
+    private let jitterWeight = 0.05
 
     private var position = CGPoint.zero
     private var lastPostAt: TimeInterval = 0
     private var buttons: MouseButtons = []
     private var scrollRemainder = CGSize.zero
     private var lastDown: (button: MouseButtons, time: TimeInterval, point: CGPoint, count: Int64)?
+    private var pending = CGSize.zero
+    private var jitter = 0.0
+    private var lastArrival: TimeInterval = 0
+    private var lastTick: TimeInterval = 0
+    private var timer: Timer?
 
     func apply(_ report: MouseReport) {
-        move(dx: CGFloat(report.dx), dy: CGFloat(report.dy))
+        track(arrivalAt: ProcessInfo.processInfo.systemUptime)
+        pending.width += CGFloat(report.dx)
+        pending.height += CGFloat(report.dy)
+        if report.buttons != buttons {
+            flush()
+        }
         setButtons(report.buttons)
         scroll(dx: CGFloat(report.scrollX), dy: CGFloat(report.scrollY))
+        startSmoothing()
     }
 
     func releaseButtons() {
+        flush()
         setButtons([])
+    }
+
+    // Over Wi-Fi reports arrive in bursts. Movement is queued and let out at
+    // display rate, trailing behind by about as much as the arrival times
+    // wobble, so the cursor glides instead of jumping.
+    private func track(arrivalAt now: TimeInterval) {
+        defer { lastArrival = now }
+        let gap = now - lastArrival
+        guard gap < 0.2 else { return }
+        jitter += (abs(gap - reportInterval) - jitter) * jitterWeight
+    }
+
+    private var lag: TimeInterval {
+        min(max(jitter * 2, minLag), maxLag)
+    }
+
+    private func startSmoothing() {
+        guard timer == nil, pending != .zero else { return }
+        lastTick = ProcessInfo.processInfo.systemUptime
+        let timer = Timer(timeInterval: smoothRate, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func tick() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let dt = now - lastTick
+        lastTick = now
+        let share = CGFloat(1 - exp(-dt / lag))
+        var step = CGSize(width: pending.width * share, height: pending.height * share)
+        if hypot(pending.width - step.width, pending.height - step.height) < 0.05 {
+            step = pending
+        }
+        pending.width -= step.width
+        pending.height -= step.height
+        move(dx: step.width, dy: step.height)
+        if pending == .zero {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
+
+    private func flush() {
+        move(dx: pending.width, dy: pending.height)
+        pending = .zero
     }
 
     private func move(dx: CGFloat, dy: CGFloat) {

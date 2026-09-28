@@ -25,21 +25,37 @@ struct KeyEvent: Equatable {
         case text
         case backspace
         case enter
+        case stroke
     }
 
     var seq: UInt32
     var kind: Kind
     var text = ""
+    var keyCode: UInt8 = 0
+    var modifiers: KeyModifiers = []
+}
+
+struct VolumeEvent: Equatable {
+    enum Direction: UInt8 {
+        case up
+        case down
+    }
+
+    var seq: UInt32
+    var direction: Direction
 }
 
 enum Packet: Equatable {
     case mouse(MouseReport)
     case key(KeyEvent)
+    case volume(VolumeEvent)
 
     private static let mouseTag: UInt8 = 1
     private static let keyTag: UInt8 = 2
+    private static let volumeTag: UInt8 = 3
     private static let mouseSize = 22
     private static let keyHeader = 6
+    private static let volumeSize = 6
 
     init?(data: Data) {
         guard let tag = data.first else { return nil }
@@ -56,9 +72,24 @@ enum Packet: Equatable {
             ))
         case Self.keyTag:
             guard data.count >= Self.keyHeader,
-                  let kind = KeyEvent.Kind(rawValue: data[data.startIndex + 5]),
-                  let text = String(data: data.dropFirst(Self.keyHeader), encoding: .utf8) else { return nil }
-            self = .key(KeyEvent(seq: data.readLittleEndian(at: 1), kind: kind, text: text))
+                  let kind = KeyEvent.Kind(rawValue: data[data.startIndex + 5]) else { return nil }
+            let seq: UInt32 = data.readLittleEndian(at: 1)
+            if kind == .stroke {
+                guard data.count == Self.keyHeader + 2 else { return nil }
+                self = .key(KeyEvent(
+                    seq: seq,
+                    kind: kind,
+                    keyCode: data[data.startIndex + Self.keyHeader],
+                    modifiers: KeyModifiers(rawValue: data[data.startIndex + Self.keyHeader + 1])
+                ))
+            } else {
+                guard let text = String(data: data.dropFirst(Self.keyHeader), encoding: .utf8) else { return nil }
+                self = .key(KeyEvent(seq: seq, kind: kind, text: text))
+            }
+        case Self.volumeTag:
+            guard data.count == Self.volumeSize,
+                  let direction = VolumeEvent.Direction(rawValue: data[data.startIndex + 5]) else { return nil }
+            self = .volume(VolumeEvent(seq: data.readLittleEndian(at: 1), direction: direction))
         default:
             return nil
         }
@@ -78,7 +109,15 @@ enum Packet: Equatable {
             data.append(Self.keyTag)
             data.appendLittleEndian(event.seq)
             data.append(event.kind.rawValue)
-            data.append(contentsOf: event.text.utf8)
+            if event.kind == .stroke {
+                data.append(contentsOf: [event.keyCode, event.modifiers.rawValue])
+            } else {
+                data.append(contentsOf: event.text.utf8)
+            }
+        case let .volume(event):
+            data.append(Self.volumeTag)
+            data.appendLittleEndian(event.seq)
+            data.append(event.direction.rawValue)
         }
         return data
     }

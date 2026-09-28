@@ -29,11 +29,15 @@ final class MouseController {
     private(set) var hostName: String?
     private(set) var mode: PointerMode
     private(set) var typed = ""
+    private(set) var pairing: Pairing?
+    private(set) var modifiers: KeyModifiers = []
     var isTyping = false
+    var isPairing = false
 
     @ObservationIgnored private var fallbackTimer: Timer?
     @ObservationIgnored private var seq: UInt32 = 0
     @ObservationIgnored private var keySeq: UInt32 = 0
+    @ObservationIgnored private var volumeSeq: UInt32 = 0
     @ObservationIgnored private var buttons: MouseButtons = []
     @ObservationIgnored private var pendingMove = CGSize.zero
     @ObservationIgnored private var pendingScroll = CGSize.zero
@@ -47,6 +51,7 @@ final class MouseController {
 
     private let motion = CMMotionManager()
     private let link = HostLink()
+    let volumeKeys = VolumeKeys()
     private let haptics = UIImpactFeedbackGenerator(style: .rigid)
     private let rate = 100.0
     private let deskGain = 18000.0
@@ -64,7 +69,11 @@ final class MouseController {
 
     init() {
         mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
-        link.onHostChange = { [weak self] in self?.hostName = $0 }
+        pairing = PairingStore.load()
+        isPairing = pairing == nil
+        link.pairing = pairing
+        link.onHostChange = { [weak self] in self?.hostChanged(to: $0) }
+        volumeKeys.onPress = { [weak self] in self?.changeVolume($0) }
     }
 
     func start() {
@@ -92,6 +101,13 @@ final class MouseController {
         send(motion: nil)
         link.stop()
         UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    func pair(with pairing: Pairing) {
+        PairingStore.save(pairing)
+        self.pairing = pairing
+        link.pairing = pairing
+        isPairing = false
     }
 
     func select(_ mode: PointerMode) {
@@ -127,14 +143,61 @@ final class MouseController {
         }
     }
 
+    func toggle(_ modifier: KeyModifiers) {
+        modifiers.formSymmetricDifference(modifier)
+        haptics.impactOccurred(intensity: 0.5)
+    }
+
+    // Keys of the Mac keyboard that iOS has no key for. Modifiers stay latched
+    // until the next key, the way sticky keys work.
+    func press(_ keyCode: UInt8) {
+        keySeq &+= 1
+        repeatSend(.key(KeyEvent(seq: keySeq, kind: .stroke, keyCode: keyCode, modifiers: modifiers)))
+        modifiers = []
+        haptics.impactOccurred(intensity: 0.5)
+    }
+
     func type(_ kind: KeyEvent.Kind, text: String) {
+        if !modifiers.isEmpty, let key = strokeKey(kind, text: text) {
+            if key.shift { modifiers.insert(.shift) }
+            press(key.code)
+            return
+        }
+        modifiers = []
         switch kind {
         case .text: typed = String((typed + text).suffix(typedLimit))
         case .backspace: typed = String(typed.dropLast())
         case .enter: typed = ""
+        case .stroke: break
         }
         keySeq &+= 1
-        let packet = Packet.key(KeyEvent(seq: keySeq, kind: kind, text: text))
+        repeatSend(.key(KeyEvent(seq: keySeq, kind: kind, text: text)))
+    }
+
+    private func strokeKey(_ kind: KeyEvent.Kind, text: String) -> (code: UInt8, shift: Bool)? {
+        switch kind {
+        case .backspace: (KeyMap.backspace, false)
+        case .enter: (KeyMap.returnKey, false)
+        case .text: text.count == 1 ? text.first.flatMap(KeyMap.lookup) : nil
+        case .stroke: nil
+        }
+    }
+
+    private func changeVolume(_ direction: VolumeEvent.Direction) {
+        volumeSeq &+= 1
+        repeatSend(.volume(VolumeEvent(seq: volumeSeq, direction: direction)))
+    }
+
+    private func hostChanged(to name: String?) {
+        hostName = name
+        if name == nil {
+            volumeKeys.stop()
+        } else {
+            volumeKeys.start()
+        }
+    }
+
+    private func repeatSend(_ packet: Packet) {
         for attempt in 0..<keyRepeats {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(attempt) * keyRepeatGap) { [weak self] in
                 self?.link.send(packet)
