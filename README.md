@@ -56,6 +56,20 @@ click, drag with two fingers to scroll. Two buttons under the pad are there for
 dragging. The keyboard button between them opens the iPhone keyboard: what you
 type is sent to the Mac and echoed on the phone.
 
+**Gestures.** The touchpad also knows the Mac trackpad gestures. macOS has no
+public way to post real gestures, so each one runs the system action it stands
+for through its default shortcut.
+
+| Gesture | Action |
+| --- | --- |
+| Three or four fingers up | Mission Control |
+| Three or four fingers down | App Exposé |
+| Three or four fingers left or right | Next or previous desktop |
+| Five fingers together | Apps (Launchpad) |
+| Five fingers apart | Show Desktop |
+| Tap with three fingers | Look Up |
+| Pinch with two fingers | Zoom in or out |
+
 **Keyboard.** Above the iPhone keyboard sits a row of Mac keys that iOS lacks:
 esc, tab, forward delete, home, end, page up and down, F1 to F12, the arrows,
 and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘ then C

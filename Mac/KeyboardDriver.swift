@@ -48,6 +48,27 @@ final class KeyboardDriver {
         }
     }
 
+    // macOS offers no public way to post trackpad gestures, so each one runs
+    // the system action it stands for through its default shortcut.
+    func apply(_ event: GestureEvent) {
+        switch event.kind {
+        case .swipeUp: press(CGKeyCode(KeyMap.up), modifiers: .control)
+        case .swipeDown: press(CGKeyCode(KeyMap.down), modifiers: .control)
+        case .swipeLeft: press(CGKeyCode(KeyMap.right), modifiers: .control)
+        case .swipeRight: press(CGKeyCode(KeyMap.left), modifiers: .control)
+        case .spreadOut: press(CGKeyCode(KeyMap.function[10]))
+        case .lookUp: press(CGKeyCode(KeyMap.lookup("d")?.code ?? 2), modifiers: [.control, .command])
+        case .zoomIn: press(CGKeyCode(KeyMap.lookup("=")?.code ?? 24), modifiers: .command)
+        case .zoomOut: press(CGKeyCode(KeyMap.lookup("-")?.code ?? 27), modifiers: .command)
+        case .pinchIn:
+            let launcher = ["/System/Applications/Apps.app", "/System/Applications/Launchpad.app"]
+                .first { FileManager.default.fileExists(atPath: $0) }
+            if let launcher {
+                NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: launcher), configuration: .init())
+            }
+        }
+    }
+
     private func type(_ units: [UniChar], keyCode: CGKeyCode) {
         for down in [true, false] {
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: down) else { continue }

@@ -18,6 +18,7 @@ final class HostController {
     @ObservationIgnored private var lastSeq: UInt32?
     @ObservationIgnored private var lastKeySeq: UInt32?
     @ObservationIgnored private var lastVolumeSeq: UInt32?
+    @ObservationIgnored private var lastGestureSeq: UInt32?
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
 
     private let driver = CursorDriver()
@@ -106,6 +107,7 @@ final class HostController {
                 case let .mouse(report): self.handle(report)
                 case let .key(event): self.handle(event)
                 case let .volume(event): self.handle(event)
+                case let .gesture(event): self.handle(event)
                 }
             }
             if error == nil {
@@ -125,6 +127,7 @@ final class HostController {
         lastSeq = nil
         lastKeySeq = nil
         lastVolumeSeq = nil
+        lastGestureSeq = nil
     }
 
     private func disconnect() {
@@ -155,6 +158,12 @@ final class HostController {
     private func handle(_ event: VolumeEvent) {
         if let lastVolumeSeq, Int32(bitPattern: event.seq &- lastVolumeSeq) <= 0 { return }
         lastVolumeSeq = event.seq
+        keyboard.apply(event)
+    }
+
+    private func handle(_ event: GestureEvent) {
+        if let lastGestureSeq, Int32(bitPattern: event.seq &- lastGestureSeq) <= 0 { return }
+        lastGestureSeq = event.seq
         keyboard.apply(event)
     }
 

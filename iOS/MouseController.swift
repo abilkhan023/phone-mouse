@@ -38,6 +38,7 @@ final class MouseController {
     @ObservationIgnored private var seq: UInt32 = 0
     @ObservationIgnored private var keySeq: UInt32 = 0
     @ObservationIgnored private var volumeSeq: UInt32 = 0
+    @ObservationIgnored private var gestureSeq: UInt32 = 0
     @ObservationIgnored private var buttons: MouseButtons = []
     @ObservationIgnored private var pendingMove = CGSize.zero
     @ObservationIgnored private var pendingScroll = CGSize.zero
@@ -181,6 +182,12 @@ final class MouseController {
         case .text: text.count == 1 ? text.first.flatMap(KeyMap.lookup) : nil
         case .stroke: nil
         }
+    }
+
+    func gesture(_ kind: GestureEvent.Kind) {
+        gestureSeq &+= 1
+        repeatSend(.gesture(GestureEvent(seq: gestureSeq, kind: kind)))
+        haptics.impactOccurred(intensity: 0.7)
     }
 
     private func changeVolume(_ direction: VolumeEvent.Direction) {

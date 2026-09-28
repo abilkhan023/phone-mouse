@@ -45,14 +45,33 @@ struct VolumeEvent: Equatable {
     var direction: Direction
 }
 
+struct GestureEvent: Equatable {
+    enum Kind: UInt8 {
+        case swipeUp
+        case swipeDown
+        case swipeLeft
+        case swipeRight
+        case pinchIn
+        case spreadOut
+        case lookUp
+        case zoomIn
+        case zoomOut
+    }
+
+    var seq: UInt32
+    var kind: Kind
+}
+
 enum Packet: Equatable {
     case mouse(MouseReport)
     case key(KeyEvent)
     case volume(VolumeEvent)
+    case gesture(GestureEvent)
 
     private static let mouseTag: UInt8 = 1
     private static let keyTag: UInt8 = 2
     private static let volumeTag: UInt8 = 3
+    private static let gestureTag: UInt8 = 4
     private static let mouseSize = 22
     private static let keyHeader = 6
     private static let volumeSize = 6
@@ -90,6 +109,10 @@ enum Packet: Equatable {
             guard data.count == Self.volumeSize,
                   let direction = VolumeEvent.Direction(rawValue: data[data.startIndex + 5]) else { return nil }
             self = .volume(VolumeEvent(seq: data.readLittleEndian(at: 1), direction: direction))
+        case Self.gestureTag:
+            guard data.count == Self.volumeSize,
+                  let kind = GestureEvent.Kind(rawValue: data[data.startIndex + 5]) else { return nil }
+            self = .gesture(GestureEvent(seq: data.readLittleEndian(at: 1), kind: kind))
         default:
             return nil
         }
@@ -118,6 +141,10 @@ enum Packet: Equatable {
             data.append(Self.volumeTag)
             data.appendLittleEndian(event.seq)
             data.append(event.direction.rawValue)
+        case let .gesture(event):
+            data.append(Self.gestureTag)
+            data.appendLittleEndian(event.seq)
+            data.append(event.kind.rawValue)
         }
         return data
     }

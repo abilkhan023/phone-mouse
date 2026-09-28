@@ -333,7 +333,8 @@ struct TouchpadDeck: View {
             TouchSurface(
                 onMove: { controller.movePointer(by: $0) },
                 onScroll: { controller.scroll(by: $0) },
-                onTap: { controller.click($0 >= 2 ? .right : .left) }
+                onTap: { controller.click($0 >= 2 ? .right : .left) },
+                onGesture: { controller.gesture($0) }
             )
             .background(Palette.pressed, in: RoundedRectangle(cornerRadius: corner))
             .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
