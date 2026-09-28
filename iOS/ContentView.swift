@@ -29,7 +29,7 @@ struct ContentView: View {
                         case .remote: RemoteDeck(controller: controller)
                         }
                     }
-                    .padding(.top, insets.top + 60)
+                    .padding(.top, insets.top + 88)
                     if controller.isTyping {
                         VStack(spacing: 8) {
                             MacKeyStrip(controller: controller)
@@ -54,6 +54,9 @@ struct ContentView: View {
                 }
                 StatusBar(controller: controller) { showsSettings = true }
                     .padding(.top, insets.top)
+                NowOnMac(app: controller.isLinked ? controller.frontApp : nil)
+                    .padding(.top, insets.top + 50)
+                    .padding(.horizontal, 14)
                 if let notice = controller.notice {
                     Notice(text: notice)
                         .padding(.top, insets.top + 56)
@@ -185,15 +188,10 @@ extension StatusBar {
         }
     }
 
-    // What is open on the Mac, how the phone reaches it and how long a report
-    // takes.
+    // How the phone reaches the Mac and how long a report takes.
     private var detail: String? {
-        guard controller.isLinked else { return nil }
-        guard controller.settings.showsLatency else {
-            return controller.frontApp.map { $0.title.isEmpty ? $0.name : "\($0.name) — \($0.title)" }
-        }
-        let app = controller.frontApp.map { $0.title.isEmpty ? $0.name : "\($0.name) — \($0.title)" }
-        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }, app]
+        guard controller.isLinked, controller.settings.showsLatency else { return nil }
+        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }]
         let text = parts.compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return text.isEmpty ? nil : text
     }
@@ -273,6 +271,44 @@ struct DictationPanel: View {
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
+    }
+}
+
+// What is open on the Mac, on a line of its own so the window title has room.
+// A tap shows the whole title.
+struct NowOnMac: View {
+    let app: FrontApp?
+    @State private var expanded = false
+
+    var body: some View {
+        Button { expanded.toggle() } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "macwindow")
+                    .font(.system(size: 12, weight: .medium))
+                if let app {
+                    (Text(app.name).bold() + Text(app.title.isEmpty ? "" : "  " + app.title))
+                        .lineLimit(expanded ? 4 : 1)
+                        .truncationMode(.tail)
+                        .multilineTextAlignment(.leading)
+                } else {
+                    Text("Nothing open yet")
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.marking(13))
+            .foregroundStyle(Palette.ink.opacity(0.75))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(minHeight: 28)
+            .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.groove, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .opacity(app == nil ? 0 : 1)
+        .disabled(app == nil)
+        .animation(.snappy, value: expanded)
+        .accessibilityLabel("Open on the Mac")
+        .accessibilityValue(app.map { "\($0.name), \($0.title)" } ?? "")
     }
 }
 
