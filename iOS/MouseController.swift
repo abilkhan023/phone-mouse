@@ -3,11 +3,13 @@ import Observation
 import UIKit
 
 enum PointerMode: String, CaseIterable {
+    case air
     case desk
     case touchpad
 
     var title: String {
         switch self {
+        case .air: "In air"
         case .desk: "On desk"
         case .touchpad: "Touchpad"
         }
@@ -15,6 +17,7 @@ enum PointerMode: String, CaseIterable {
 
     var hint: String {
         switch self {
+        case .air: "Hold the phone and point it at the screen."
         case .desk: "Slide the phone across the desk like a mouse."
         case .touchpad: "Drag to move, tap to click, two fingers to scroll."
         }
@@ -25,9 +28,12 @@ enum PointerMode: String, CaseIterable {
 final class MouseController {
     private(set) var hostName: String?
     private(set) var mode: PointerMode
+    private(set) var typed = ""
+    var isTyping = false
 
     @ObservationIgnored private var fallbackTimer: Timer?
     @ObservationIgnored private var seq: UInt32 = 0
+    @ObservationIgnored private var keySeq: UInt32 = 0
     @ObservationIgnored private var buttons: MouseButtons = []
     @ObservationIgnored private var pendingMove = CGSize.zero
     @ObservationIgnored private var pendingScroll = CGSize.zero
@@ -35,6 +41,7 @@ final class MouseController {
     @ObservationIgnored private var lastSampleAt: TimeInterval = 0
     @ObservationIgnored private var lastTouchAt: TimeInterval = 0
     @ObservationIgnored private var desk = DeskTracker()
+    @ObservationIgnored private var air = AirPointer()
 
     private static let modeKey = "pointerMode"
 
@@ -51,9 +58,12 @@ final class MouseController {
     private let scrollGain = 1.5
     private let freezeDuration = 0.12
     private let clickDuration = 0.04
+    private let keyRepeats = 3
+    private let keyRepeatGap = 0.01
+    private let typedLimit = 120
 
     init() {
-        mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .desk
+        mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
         link.onHostChange = { [weak self] in self?.hostName = $0 }
     }
 
@@ -86,7 +96,10 @@ final class MouseController {
 
     func select(_ mode: PointerMode) {
         self.mode = mode
+        isTyping = false
+        typed = ""
         desk.reset()
+        air.reset()
         pendingMove = .zero
         UserDefaults.standard.set(mode.rawValue, forKey: Self.modeKey)
     }
@@ -94,6 +107,11 @@ final class MouseController {
     func setButton(_ button: MouseButtons, pressed: Bool) {
         if pressed {
             buttons.insert(button)
+            if mode == .air {
+                let undo = air.rewind()
+                pendingMove.width += undo.x
+                pendingMove.height += undo.y
+            }
         } else {
             buttons.remove(button)
         }
@@ -106,6 +124,21 @@ final class MouseController {
         setButton(button, pressed: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + clickDuration) { [weak self] in
             self?.setButton(button, pressed: false)
+        }
+    }
+
+    func type(_ kind: KeyEvent.Kind, text: String) {
+        switch kind {
+        case .text: typed = String((typed + text).suffix(typedLimit))
+        case .backspace: typed = String(typed.dropLast())
+        case .enter: typed = ""
+        }
+        keySeq &+= 1
+        let packet = Packet.key(KeyEvent(seq: keySeq, kind: kind, text: text))
+        for attempt in 0..<keyRepeats {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(attempt) * keyRepeatGap) { [weak self] in
+                self?.link.send(packet)
+            }
         }
     }
 
@@ -134,25 +167,36 @@ final class MouseController {
         var report = MouseReport(seq: seq, buttons: buttons)
         seq &+= 1
         let delta = pointerDelta(for: motion)
-        report.dx = Float(delta.x)
-        report.dy = Float(delta.y)
+        report.dx = Float(delta.x + pendingMove.width)
+        report.dy = Float(delta.y + pendingMove.height)
+        pendingMove = .zero
         report.scrollX = Float(pendingScroll.width)
         report.scrollY = Float(pendingScroll.height)
         pendingScroll = .zero
-        link.send(report)
+        link.send(.mouse(report))
     }
 
     private func pointerDelta(for motion: CMDeviceMotion?) -> CGPoint {
+        guard let motion, mode != .touchpad else { return .zero }
+        let dt = min(max(motion.timestamp - lastSampleAt, 0), 0.05)
+        lastSampleAt = motion.timestamp
+        let frozen = ProcessInfo.processInfo.systemUptime < frozenUntil
         switch mode {
         case .touchpad:
-            let delta = CGPoint(x: pendingMove.width, y: pendingMove.height)
-            pendingMove = .zero
-            return delta
+            return .zero
+        case .air:
+            guard !frozen else {
+                air.reset()
+                return .zero
+            }
+            let step = air.movement(
+                rotation: SIMD3(motion.rotationRate.x, motion.rotationRate.y, motion.rotationRate.z),
+                gravity: SIMD3(motion.gravity.x, motion.gravity.y, motion.gravity.z),
+                dt: dt
+            )
+            return CGPoint(x: step.x, y: step.y)
         case .desk:
-            guard let motion else { return .zero }
-            let dt = min(max(motion.timestamp - lastSampleAt, 0), 0.05)
-            lastSampleAt = motion.timestamp
-            guard ProcessInfo.processInfo.systemUptime >= frozenUntil else {
+            guard !frozen else {
                 desk.reset()
                 return .zero
             }

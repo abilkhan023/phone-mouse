@@ -3,28 +3,45 @@ import SwiftUI
 struct ContentView: View {
     let controller: MouseController
     @Environment(\.scenePhase) private var scenePhase
+    @State private var keyboardTop = CGFloat.infinity
 
     var body: some View {
         GeometryReader { safeArea in
             let insets = safeArea.safeAreaInsets
+            let screenHeight = safeArea.size.height + insets.top + insets.bottom
+            let keyboardHeight = max(screenHeight - keyboardTop, insets.bottom)
             ZStack(alignment: .top) {
                 Shell(lit: controller.hostName != nil)
                 VStack(spacing: 0) {
                     Group {
                         switch controller.mode {
-                        case .desk: ButtonDeck(controller: controller)
+                        case .air, .desk: ButtonDeck(controller: controller)
                         case .touchpad: TouchpadDeck(controller: controller)
                         }
                     }
                     .padding(.top, insets.top + 60)
-                    Hint(mode: controller.mode)
-                        .frame(height: 76)
-                        .padding(.bottom, insets.bottom)
+                    if controller.isTyping {
+                        TypedLine(text: controller.typed)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .padding(.bottom, keyboardHeight)
+                    } else {
+                        Hint(mode: controller.mode)
+                            .frame(height: 76)
+                            .padding(.bottom, insets.bottom)
+                    }
                 }
                 StatusBar(controller: controller)
                     .padding(.top, insets.top)
             }
             .ignoresSafeArea()
+        }
+        .ignoresSafeArea(.keyboard)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+            guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardTop = frame.minY
+            }
         }
         .preferredColorScheme(.dark)
         .persistentSystemOverlays(.hidden)
@@ -76,7 +93,7 @@ struct StatusBar: View {
             Spacer()
             ModeSwitch(mode: controller.mode) { controller.select($0) }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 14)
         .frame(height: 48)
     }
 }
@@ -94,7 +111,7 @@ struct ModeSwitch: View {
                     Text(option.title)
                         .font(.marking(14))
                         .foregroundStyle(option == mode ? Palette.shellBottom : Palette.ink)
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, 10)
                         .frame(height: 30)
                         .background(option == mode ? Palette.ink : .clear, in: Capsule())
                 }
@@ -120,6 +137,30 @@ struct Hint: View {
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .allowsHitTesting(false)
+    }
+}
+
+struct TypedLine: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Text(text.isEmpty ? "Start typing" : text)
+                .font(.marking(17))
+                .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
+                .lineLimit(1)
+                .truncationMode(.head)
+            Rectangle()
+                .fill(Palette.led)
+                .frame(width: 2, height: 20)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 44)
+        .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.groove, lineWidth: 2))
+        .accessibilityLabel("Typed text")
+        .accessibilityValue(text)
     }
 }
 
@@ -166,6 +207,7 @@ struct TouchpadDeck: View {
     private let corner: CGFloat = 28
 
     var body: some View {
+        let isTyping = controller.isTyping
         VStack(spacing: 10) {
             TouchSurface(
                 onMove: { controller.movePointer(by: $0) },
@@ -177,11 +219,29 @@ struct TouchpadDeck: View {
             .accessibilityLabel("Touchpad")
             HStack(spacing: 10) {
                 key(isPressed: leftPressed, pressed: $leftPressed, label: "Left button")
+                Button {
+                    controller.isTyping.toggle()
+                } label: {
+                    Image(systemName: isTyping ? "keyboard.chevron.compact.down" : "keyboard")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(isTyping ? Palette.shellBottom : Palette.ink)
+                        .frame(width: 76)
+                        .frame(maxHeight: .infinity)
+                        .background(isTyping ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: corner))
+                        .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isTyping ? "Hide keyboard" : "Show keyboard")
                 key(isPressed: rightPressed, pressed: $rightPressed, label: "Right button")
             }
-            .frame(height: 88)
+            .frame(height: isTyping ? 56 : 88)
         }
         .padding(.horizontal, 14)
+        .background(
+            KeyCapture(isActive: isTyping) { controller.type($0, text: $1) }
+                .frame(width: 1, height: 1)
+                .opacity(0)
+        )
         .onChange(of: leftPressed) { _, value in controller.setButton(.left, pressed: value) }
         .onChange(of: rightPressed) { _, value in controller.setButton(.right, pressed: value) }
     }

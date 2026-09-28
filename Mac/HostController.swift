@@ -10,9 +10,11 @@ final class HostController {
     @ObservationIgnored private var listener: NWListener?
     @ObservationIgnored private var connection: NWConnection?
     @ObservationIgnored private var lastSeq: UInt32?
+    @ObservationIgnored private var lastKeySeq: UInt32?
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
 
     private let driver = CursorDriver()
+    private let keyboard = KeyboardDriver()
     private let silenceTimeout = 0.5
 
     init() {
@@ -50,6 +52,7 @@ final class HostController {
         self.connection?.cancel()
         self.connection = connection
         lastSeq = nil
+        lastKeySeq = nil
         connection.start(queue: .main)
         receive(on: connection)
     }
@@ -57,8 +60,11 @@ final class HostController {
     private func receive(on connection: NWConnection) {
         connection.receiveMessage { [weak self] data, _, _, error in
             guard let self, connection === self.connection else { return }
-            if let data, let report = MouseReport(data: data) {
-                self.handle(report)
+            if let data, let packet = Packet(data: data) {
+                switch packet {
+                case let .mouse(report): self.handle(report)
+                case let .key(event): self.handle(event)
+                }
             }
             if error == nil {
                 self.receive(on: connection)
@@ -74,6 +80,12 @@ final class HostController {
             isClientActive = true
         }
         driver.apply(report)
+    }
+
+    private func handle(_ event: KeyEvent) {
+        if let lastKeySeq, Int32(bitPattern: event.seq &- lastKeySeq) <= 0 { return }
+        lastKeySeq = event.seq
+        keyboard.apply(event)
     }
 
     private func check() {

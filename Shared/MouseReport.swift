@@ -12,8 +12,6 @@ struct MouseButtons: OptionSet {
 }
 
 struct MouseReport: Equatable {
-    static let size = 21
-
     var seq: UInt32 = 0
     var buttons: MouseButtons = []
     var dx: Float = 0
@@ -22,23 +20,65 @@ struct MouseReport: Equatable {
     var scrollY: Float = 0
 }
 
-extension MouseReport {
+struct KeyEvent: Equatable {
+    enum Kind: UInt8 {
+        case text
+        case backspace
+        case enter
+    }
+
+    var seq: UInt32
+    var kind: Kind
+    var text = ""
+}
+
+enum Packet: Equatable {
+    case mouse(MouseReport)
+    case key(KeyEvent)
+
+    private static let mouseTag: UInt8 = 1
+    private static let keyTag: UInt8 = 2
+    private static let mouseSize = 22
+    private static let keyHeader = 6
+
     init?(data: Data) {
-        guard data.count == Self.size else { return nil }
-        seq = data.readLittleEndian(at: 0)
-        buttons = MouseButtons(rawValue: data[data.startIndex + 4])
-        dx = Float(bitPattern: data.readLittleEndian(at: 5))
-        dy = Float(bitPattern: data.readLittleEndian(at: 9))
-        scrollX = Float(bitPattern: data.readLittleEndian(at: 13))
-        scrollY = Float(bitPattern: data.readLittleEndian(at: 17))
+        guard let tag = data.first else { return nil }
+        switch tag {
+        case Self.mouseTag:
+            guard data.count == Self.mouseSize else { return nil }
+            self = .mouse(MouseReport(
+                seq: data.readLittleEndian(at: 1),
+                buttons: MouseButtons(rawValue: data[data.startIndex + 5]),
+                dx: Float(bitPattern: data.readLittleEndian(at: 6)),
+                dy: Float(bitPattern: data.readLittleEndian(at: 10)),
+                scrollX: Float(bitPattern: data.readLittleEndian(at: 14)),
+                scrollY: Float(bitPattern: data.readLittleEndian(at: 18))
+            ))
+        case Self.keyTag:
+            guard data.count >= Self.keyHeader,
+                  let kind = KeyEvent.Kind(rawValue: data[data.startIndex + 5]),
+                  let text = String(data: data.dropFirst(Self.keyHeader), encoding: .utf8) else { return nil }
+            self = .key(KeyEvent(seq: data.readLittleEndian(at: 1), kind: kind, text: text))
+        default:
+            return nil
+        }
     }
 
     func encoded() -> Data {
-        var data = Data(capacity: Self.size)
-        data.appendLittleEndian(seq)
-        data.append(buttons.rawValue)
-        for value in [dx, dy, scrollX, scrollY] {
-            data.appendLittleEndian(value.bitPattern)
+        var data = Data()
+        switch self {
+        case let .mouse(report):
+            data.append(Self.mouseTag)
+            data.appendLittleEndian(report.seq)
+            data.append(report.buttons.rawValue)
+            for value in [report.dx, report.dy, report.scrollX, report.scrollY] {
+                data.appendLittleEndian(value.bitPattern)
+            }
+        case let .key(event):
+            data.append(Self.keyTag)
+            data.appendLittleEndian(event.seq)
+            data.append(event.kind.rawValue)
+            data.append(contentsOf: event.text.utf8)
         }
         return data
     }

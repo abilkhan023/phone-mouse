@@ -10,13 +10,16 @@ struct DeskTracker {
     private let calmAcceleration = 0.02
     private let calmSamples = 30
     private let steadySpread = 0.004
+    private let steadyTurnRate = 0.03
+    private let landingSamples = 8
     private let meanRate = 0.2
     private let quietAcceleration = 0.006
-    private let quietTurnRate = 0.03
+    private let quietSpin = 0.01
     private let quietSamples = 5
-    private let landingSamples = 8
-    private let leadTime = 0.02
     private let biasRate = 0.02
+    private let turnDeadZone = 0.004
+    private let pivotRadius = 0.3
+    private let blendTime = 0.25
     private let maxStrokeDuration = 6.0
     private let forgiveWindow = 0.15
 
@@ -26,7 +29,6 @@ struct DeskTracker {
     private var mean: SIMD2<Double>?
     private var bias = SIMD2<Double>.zero
     private var velocity = SIMD2<Double>.zero
-    private var heading = 0.0
     private var strokeDuration = 0.0
     private var calmCount = 0
     private var steadyCount = 0
@@ -34,7 +36,6 @@ struct DeskTracker {
 
     mutating func reset() {
         velocity = .zero
-        heading = 0
         strokeDuration = 0
     }
 
@@ -61,7 +62,7 @@ struct DeskTracker {
         let flat = abs(gravityZ) > flatGravity
         let calm = flat && tiltRate < calmTiltRate && abs(vertical) < calmAcceleration
         calmCount = calm ? calmCount + 1 : 0
-        let steady = simd_length(raw - average) < steadySpread && abs(rotation.z) < quietTurnRate
+        let steady = simd_length(raw - average) < steadySpread && abs(rotation.z) < steadyTurnRate
         steadyCount = steady ? steadyCount + 1 : 0
 
         if !flat || tiltRate > liftTiltRate || abs(vertical) > liftAcceleration {
@@ -82,7 +83,8 @@ struct DeskTracker {
         }
 
         let acceleration = raw - bias
-        let quiet = simd_length(acceleration) < quietAcceleration && abs(rotation.z) < quietTurnRate
+        let spin = max(abs(rotation.x), abs(rotation.y), abs(rotation.z))
+        let quiet = simd_length(acceleration) < quietAcceleration && spin < quietSpin
         quietCount = quiet ? quietCount + 1 : 0
         if quietCount >= quietSamples {
             reset()
@@ -90,16 +92,14 @@ struct DeskTracker {
             return .zero
         }
         strokeDuration += dt
-        guard strokeDuration < maxStrokeDuration else {
-            velocity = .zero
-            return .zero
+        if strokeDuration >= maxStrokeDuration {
+            velocity.y = 0
+            strokeDuration = 0
         }
-        heading += rotation.z * dt
-        let c = cos(heading)
-        let s = sin(heading)
-        let world = SIMD2(c * acceleration.x - s * acceleration.y, s * acceleration.x + c * acceleration.y)
-        velocity += world * standardGravity * dt
-        let ahead = velocity + world * standardGravity * leadTime
-        return SIMD2(c * ahead.x + s * ahead.y, -s * ahead.x + c * ahead.y) * dt
+        let turn = abs(rotation.z) < turnDeadZone ? 0 : rotation.z
+        velocity.x += (acceleration.x * standardGravity + turn * velocity.y) * dt
+        velocity.x += (-pivotRadius * turn - velocity.x) * min(dt / blendTime, 1)
+        velocity.y += (acceleration.y * standardGravity - turn * velocity.x) * dt
+        return velocity * dt
     }
 }

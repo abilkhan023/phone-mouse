@@ -31,8 +31,15 @@ the Mac is about 5 ms.
 
 | Mode | How to use it | What moves the cursor |
 | --- | --- | --- |
+| In air | Hold the phone and point it at the screen | The gyroscope |
 | On desk | Lay the phone flat and slide it like a mouse | The accelerometer and gyroscope |
 | Touchpad | Drag a finger across the screen | The touch screen |
+
+**In air.** Turn your wrist left and right or up and down to move the cursor.
+This is the most precise of the two motion modes: a gyroscope measures rotation
+directly, so nothing drifts. It works the same whether the phone lies flat in
+your hand or stands upright. Small hand tremor is filtered out, and the cursor
+holds still for a moment when you press a button.
 
 **On desk.** The screen shows a mouse: two buttons and a scroll wheel. Hold a
 button and slide the phone to drag. When the phone is lifted off the desk the
@@ -41,7 +48,8 @@ moment.
 
 **Touchpad.** Drag to move, tap to click, tap with two fingers for a right
 click, drag with two fingers to scroll. Two buttons under the pad are there for
-dragging.
+dragging. The keyboard button between them opens the iPhone keyboard: what you
+type is sent to the Mac and echoed on the phone.
 
 ## Requirements
 

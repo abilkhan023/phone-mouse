@@ -27,9 +27,9 @@ final class HostLink {
         onHostChange?(nil)
     }
 
-    func send(_ report: MouseReport) {
+    func send(_ packet: Packet) {
         guard let connection, connection.state == .ready else { return }
-        connection.send(content: report.encoded(), completion: .idempotent)
+        connection.send(content: packet.encoded(), completion: .idempotent)
     }
 
     private func update(_ results: Set<NWBrowser.Result>) {
