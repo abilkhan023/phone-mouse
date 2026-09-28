@@ -52,7 +52,7 @@ final class KeyboardDriver {
     // the system action it stands for through its default shortcut.
     func apply(_ event: GestureEvent) {
         switch event.kind {
-        case .swipeUp: press(CGKeyCode(KeyMap.up), modifiers: .control)
+        case .swipeUp: open("/System/Applications/Mission Control.app")
         case .swipeDown: press(CGKeyCode(KeyMap.down), modifiers: .control)
         case .swipeLeft: press(CGKeyCode(KeyMap.right), modifiers: .control)
         case .swipeRight: press(CGKeyCode(KeyMap.left), modifiers: .control)
@@ -61,12 +61,17 @@ final class KeyboardDriver {
         case .zoomIn: press(CGKeyCode(KeyMap.lookup("=")?.code ?? 24), modifiers: .command)
         case .zoomOut: press(CGKeyCode(KeyMap.lookup("-")?.code ?? 27), modifiers: .command)
         case .pinchIn:
-            let launcher = ["/System/Applications/Apps.app", "/System/Applications/Launchpad.app"]
-                .first { FileManager.default.fileExists(atPath: $0) }
-            if let launcher {
-                NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: launcher), configuration: .init())
+            if !open("/System/Applications/Apps.app") {
+                open("/System/Applications/Launchpad.app")
             }
         }
+    }
+
+    @discardableResult
+    private func open(_ path: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path) else { return false }
+        NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: .init())
+        return true
     }
 
     private func type(_ units: [UniChar], keyCode: CGKeyCode) {
@@ -86,12 +91,26 @@ final class KeyboardDriver {
             flags.insert(entry.flag)
             post(entry.code, down: true, flags: flags)
         }
-        post(key, down: true, flags: flags)
-        post(key, down: false, flags: flags)
+        post(key, down: true, flags: flags.union(keyFlags(key)))
+        post(key, down: false, flags: flags.union(keyFlags(key)))
         for entry in held.reversed() {
             flags.remove(entry.flag)
             post(entry.code, down: false, flags: flags)
         }
+    }
+
+    // A real keyboard marks arrows as keypad keys and both arrows and the
+    // function row as fn keys. System shortcuts such as ⌃← only match events
+    // that carry the same marks.
+    private func keyFlags(_ key: CGKeyCode) -> CGEventFlags {
+        let code = UInt8(truncatingIfNeeded: key)
+        if [KeyMap.left, KeyMap.right, KeyMap.up, KeyMap.down].contains(code) {
+            return [.maskNumericPad, .maskSecondaryFn]
+        }
+        if KeyMap.function.contains(code) || [KeyMap.home, KeyMap.end, KeyMap.pageUp, KeyMap.pageDown, KeyMap.forwardDelete].contains(code) {
+            return .maskSecondaryFn
+        }
+        return []
     }
 
     private func post(_ key: CGKeyCode, down: Bool, flags: CGEventFlags) {

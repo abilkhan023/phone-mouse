@@ -26,17 +26,35 @@ enum PointerMode: String, CaseIterable {
 
 @Observable
 final class MouseController {
+    enum CodeState: Equatable {
+        case idle
+        case waiting(String)
+        case comparing(String, code: String)
+        case failed(String)
+    }
+
     private(set) var hostName: String?
+    // True while the Mac answers, which only a Mac holding the same key can.
+    private(set) var isLinked = false
     private(set) var mode: PointerMode
-    private(set) var typed = ""
+    private(set) var typed: String
     private(set) var pairing: Pairing?
     private(set) var modifiers: KeyModifiers = []
+    private(set) var nearbyHosts: [String] = []
+    private(set) var codeState = CodeState.idle
     var isTyping = false
     var isPairing = false
 
     @ObservationIgnored private var fallbackTimer: Timer?
     @ObservationIgnored private var seq: UInt32 = 0
-    @ObservationIgnored private var keySeq: UInt32 = 0
+    // Key numbers start at random on each launch, so the Mac can tell a new
+    // stream from repeats of the old one.
+    @ObservationIgnored private var keySeq: UInt32
+    @ObservationIgnored private let keyStreamStart: UInt32
+    @ObservationIgnored private var unsentKeys: [KeyEvent] = []
+    @ObservationIgnored private var lastMacAt: TimeInterval = 0
+    @ObservationIgnored private var ticks = 0
+    @ObservationIgnored private var codeClient: CodePairingClient?
     @ObservationIgnored private var volumeSeq: UInt32 = 0
     @ObservationIgnored private var gestureSeq: UInt32 = 0
     @ObservationIgnored private var buttons: MouseButtons = []
@@ -49,6 +67,7 @@ final class MouseController {
     @ObservationIgnored private var air = AirPointer()
 
     private static let modeKey = "pointerMode"
+    private static let typedKey = "typedText"
 
     private let motion = CMMotionManager()
     private let link = HostLink()
@@ -66,14 +85,23 @@ final class MouseController {
     private let clickDuration = 0.04
     private let keyRepeats = 3
     private let keyRepeatGap = 0.01
-    private let typedLimit = 120
+    private let typedLimit = 2000
+    private let linkTimeout = 1.5
+    private let resendTicks = 5
+    private let resendBatch = 32
 
     init() {
         mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
+        let keyStart = UInt32.random(in: .min ... .max)
+        keySeq = keyStart
+        keyStreamStart = keyStart &+ 1
+        typed = UserDefaults.standard.string(forKey: Self.typedKey) ?? ""
         pairing = PairingStore.load()
         isPairing = pairing == nil
         link.pairing = pairing
-        link.onHostChange = { [weak self] in self?.hostChanged(to: $0) }
+        link.onHostChange = { [weak self] in self?.hostName = $0 }
+        link.onHostsChange = { [weak self] in self?.nearbyHosts = $0 }
+        link.onPacket = { [weak self] in self?.received($0) }
         volumeKeys.onPress = { [weak self] in self?.changeVolume($0) }
     }
 
@@ -101,6 +129,9 @@ final class MouseController {
         buttons = []
         send(motion: nil)
         link.stop()
+        setLinked(false)
+        cancelCodePairing()
+        UserDefaults.standard.set(typed, forKey: Self.typedKey)
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
@@ -109,12 +140,41 @@ final class MouseController {
         self.pairing = pairing
         link.pairing = pairing
         isPairing = false
+        cancelCodePairing()
+    }
+
+    func pairByCode(with name: String) {
+        cancelCodePairing()
+        guard let host = link.host(named: name) else { return }
+        codeState = .waiting(name)
+        codeClient = CodePairingClient(
+            host: host,
+            peerToPeer: link.usesPeerToPeerNow,
+            onCode: { [weak self] in self?.codeState = .comparing(name, code: $0) },
+            completion: { [weak self] result in
+                guard let self else { return }
+                self.codeClient = nil
+                switch result {
+                case let .success(pairing):
+                    self.pair(with: pairing)
+                case .failure(.noAnswer):
+                    self.codeState = .failed("\(name) did not answer. Open Pair iPhone on the Mac and try again.")
+                case .failure(.mismatch):
+                    self.codeState = .failed("Could not verify \(name). Try again.")
+                }
+            }
+        )
+    }
+
+    func cancelCodePairing() {
+        codeClient?.cancel()
+        codeClient = nil
+        codeState = .idle
     }
 
     func select(_ mode: PointerMode) {
         self.mode = mode
         isTyping = false
-        typed = ""
         desk.reset()
         air.reset()
         pendingMove = .zero
@@ -152,8 +212,7 @@ final class MouseController {
     // Keys of the Mac keyboard that iOS has no key for. Modifiers stay latched
     // until the next key, the way sticky keys work.
     func press(_ keyCode: UInt8) {
-        keySeq &+= 1
-        repeatSend(.key(KeyEvent(seq: keySeq, kind: .stroke, keyCode: keyCode, modifiers: modifiers)))
+        queue(KeyEvent(seq: 0, kind: .stroke, keyCode: keyCode, modifiers: modifiers))
         modifiers = []
         haptics.impactOccurred(intensity: 0.5)
     }
@@ -168,11 +227,50 @@ final class MouseController {
         switch kind {
         case .text: typed = String((typed + text).suffix(typedLimit))
         case .backspace: typed = String(typed.dropLast())
-        case .enter: typed = ""
+        case .enter: typed = String((typed + "\n").suffix(typedLimit))
         case .stroke: break
         }
+        queue(KeyEvent(seq: 0, kind: kind, text: text))
+    }
+
+    func clearTyped() {
+        typed = ""
+        UserDefaults.standard.set(typed, forKey: Self.typedKey)
+    }
+
+    // Key events wait in order until the Mac confirms them, so nothing typed
+    // is lost when the connection drops; they go out again once it is back.
+    private func queue(_ event: KeyEvent) {
+        var event = event
         keySeq &+= 1
-        repeatSend(.key(KeyEvent(seq: keySeq, kind: kind, text: text)))
+        event.seq = keySeq
+        unsentKeys.append(event)
+        link.send(.key(event))
+    }
+
+    private func resendKeys() {
+        for event in unsentKeys.prefix(resendBatch) {
+            link.send(.key(event))
+        }
+    }
+
+    private func received(_ packet: Packet) {
+        guard case let .ack(seq) = packet else { return }
+        lastMacAt = ProcessInfo.processInfo.systemUptime
+        setLinked(true)
+        // An ack from before this launch belongs to another stream of numbers.
+        guard Int32(bitPattern: seq &- keyStreamStart) >= 0, Int32(bitPattern: keySeq &- seq) >= 0 else { return }
+        unsentKeys.removeAll { Int32(bitPattern: seq &- $0.seq) >= 0 }
+    }
+
+    private func setLinked(_ linked: Bool) {
+        guard linked != isLinked else { return }
+        isLinked = linked
+        if linked {
+            volumeKeys.start()
+        } else {
+            volumeKeys.stop()
+        }
     }
 
     private func strokeKey(_ kind: KeyEvent.Kind, text: String) -> (code: UInt8, shift: Bool)? {
@@ -193,15 +291,6 @@ final class MouseController {
     private func changeVolume(_ direction: VolumeEvent.Direction) {
         volumeSeq &+= 1
         repeatSend(.volume(VolumeEvent(seq: volumeSeq, direction: direction)))
-    }
-
-    private func hostChanged(to name: String?) {
-        hostName = name
-        if name == nil {
-            volumeKeys.stop()
-        } else {
-            volumeKeys.start()
-        }
     }
 
     private func repeatSend(_ packet: Packet) {
@@ -234,6 +323,15 @@ final class MouseController {
     }
 
     private func send(motion: CMDeviceMotion?) {
+        ticks &+= 1
+        if ticks % resendTicks == 0 {
+            if !unsentKeys.isEmpty {
+                resendKeys()
+            }
+            if isLinked, ProcessInfo.processInfo.systemUptime - lastMacAt > linkTimeout {
+                setLinked(false)
+            }
+        }
         var report = MouseReport(seq: seq, buttons: buttons)
         seq &+= 1
         let delta = pointerDelta(for: motion)

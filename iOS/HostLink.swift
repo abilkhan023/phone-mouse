@@ -3,6 +3,8 @@ import Network
 
 final class HostLink {
     var onHostChange: ((String?) -> Void)?
+    var onPacket: ((Packet) -> Void)?
+    var onHostsChange: (([String]) -> Void)?
     var pairing: Pairing? {
         didSet {
             channel = pairing.map { SecureChannel(key: $0.key) }
@@ -19,6 +21,7 @@ final class HostLink {
     private var usesPeerToPeer = false
     private var channel: SecureChannel?
     private var counter: UInt64 = 0
+    private var macCounter: UInt64 = 0
 
     private let fallbackDelay = 3.0
 
@@ -43,11 +46,29 @@ final class HostLink {
     // which is what the Mac checks to reject replayed packets.
     func send(_ packet: Packet) {
         guard let connection, connection.state == .ready, let channel else { return }
-        let now = UInt64(Date().timeIntervalSince1970 * 1_000_000)
-        counter = max(counter + 1, now)
-        guard let data = channel.seal(packet, counter: counter) else { return }
+        counter = SecureChannel.counter(after: counter)
+        guard let data = channel.seal(packet, counter: counter, from: .phone) else { return }
         connection.send(content: data, completion: .idempotent)
     }
+
+    // Macs the phone can see, for pairing by code.
+    func host(named name: String) -> NWEndpoint? {
+        browser?.browseResults.map(\.endpoint).first { Self.name(of: $0) == name }
+    }
+
+    private static func name(of endpoint: NWEndpoint) -> String? {
+        if case let .service(name, _, _, _) = endpoint { return name }
+        return nil
+    }
+
+    static func parameters(peerToPeer: Bool) -> NWParameters {
+        let parameters = NWParameters.udp
+        parameters.includePeerToPeer = peerToPeer
+        parameters.serviceClass = .interactiveVoice
+        return parameters
+    }
+
+    var usesPeerToPeerNow: Bool { usesPeerToPeer }
 
     // Peer-to-peer Wi-Fi (AWDL) makes the radio hop between channels and adds
     // tens of milliseconds of jitter, so it is used only when the Mac cannot be
@@ -94,6 +115,7 @@ final class HostLink {
     }
 
     private func update(_ results: Set<NWBrowser.Result>) {
+        onHostsChange?(results.compactMap { Self.name(of: $0.endpoint) }.sorted())
         if let connection, results.contains(where: { $0.endpoint == connection.endpoint }) { return }
         connection?.cancel()
         connection = nil
@@ -114,10 +136,7 @@ final class HostLink {
     }
 
     private func connect(to endpoint: NWEndpoint) {
-        let parameters = NWParameters.udp
-        parameters.includePeerToPeer = usesPeerToPeer
-        parameters.serviceClass = .interactiveVoice
-        let connection = NWConnection(to: endpoint, using: parameters)
+        let connection = NWConnection(to: endpoint, using: Self.parameters(peerToPeer: usesPeerToPeer))
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection, connection === self.connection else { return }
             if case .failed = state {
@@ -128,8 +147,23 @@ final class HostLink {
         }
         connection.start(queue: .main)
         self.connection = connection
+        receive(on: connection)
         if case let .service(name, _, _, _) = endpoint {
             onHostChange?(name)
+        }
+    }
+
+    private func receive(on connection: NWConnection) {
+        connection.receiveMessage { [weak self] data, _, _, error in
+            guard let self, connection === self.connection else { return }
+            if let data, let channel = self.channel,
+               let (packet, counter) = channel.open(data, from: .mac), counter > self.macCounter {
+                self.macCounter = counter
+                self.onPacket?(packet)
+            }
+            if error == nil {
+                self.receive(on: connection)
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Network
 import Observation
 
@@ -7,6 +8,10 @@ final class HostController {
     private(set) var isClientActive = false
     private(set) var isTrusted = AXIsProcessTrusted()
     private(set) var pairing: Pairing
+    // Changes each time a phone connects, so the pairing window knows to close.
+    private(set) var connections = 0
+    // A phone asking to pair by code, shown in the pairing window.
+    private(set) var comparison: Comparison?
     let needsPairing: Bool
 
     @ObservationIgnored private var listener: NWListener?
@@ -15,16 +20,37 @@ final class HostController {
     @ObservationIgnored private var channel: SecureChannel
     @ObservationIgnored private var lastCounter: UInt64
     @ObservationIgnored private var savedCounter: UInt64
+    @ObservationIgnored private var sendCounter: UInt64 = 0
     @ObservationIgnored private var lastSeq: UInt32?
     @ObservationIgnored private var lastKeySeq: UInt32?
     @ObservationIgnored private var lastVolumeSeq: UInt32?
     @ObservationIgnored private var lastGestureSeq: UInt32?
     @ObservationIgnored private var lastReportAt: TimeInterval = 0
+    @ObservationIgnored private var offers: [ObjectIdentifier: Offer] = [:]
+    @ObservationIgnored private var isPairingOpen = false
+
+    struct Comparison: Equatable {
+        let code: String
+        fileprivate let id: ObjectIdentifier
+    }
+
+    private struct Offer {
+        let privateKey = Curve25519.KeyAgreement.PrivateKey()
+        let macNonce = CodePairing.newNonce()
+        let phoneKey: Data
+        let connection: NWConnection
+        var phoneNonce: Data?
+        var isAllowed = false
+
+        var macKey: Data { privateKey.publicKey.rawRepresentation }
+    }
 
     private let driver = CursorDriver()
     private let keyboard = KeyboardDriver()
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
+    private let offerLimit = 8
+    private let keyWindow: Int32 = 1000
     private static let counterKey = "lastCounter"
 
     init() {
@@ -51,12 +77,54 @@ final class HostController {
     // A new code makes the old one useless, so a phone paired before has to
     // scan again.
     func resetPairing() {
-        pairing = Pairing.generate(hostName: Self.serviceName)
-        PairingStore.save(pairing)
-        channel = SecureChannel(key: pairing.key)
+        adopt(Pairing.generate(hostName: Self.serviceName))
         connection?.cancel()
         connection = nil
         disconnect()
+    }
+
+    // Pairing by code is only open while the pairing window is.
+    func beginCodePairing() {
+        isPairingOpen = true
+    }
+
+    // An allowed offer stays, so the phone still gets its confirmation if the
+    // first one was lost.
+    func endCodePairing() {
+        isPairingOpen = false
+        offers = offers.filter { $0.value.isAllowed }
+        comparison = nil
+    }
+
+    func allowComparison() {
+        guard let comparison, var offer = offers[comparison.id], let phoneNonce = offer.phoneNonce,
+              let publicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: offer.phoneKey),
+              let secret = try? offer.privateKey.sharedSecretFromKeyAgreement(with: publicKey) else { return }
+        let key = CodePairing.sessionKey(
+            secret: secret,
+            phoneKey: offer.phoneKey,
+            macKey: offer.macKey,
+            phoneNonce: phoneNonce,
+            macNonce: offer.macNonce
+        )
+        offer.isAllowed = true
+        offers = [comparison.id: offer]
+        self.comparison = nil
+        adopt(Pairing(hostName: Self.serviceName, keyData: key))
+        send(.ack(0), on: offer.connection)
+        connections += 1
+    }
+
+    func denyComparison() {
+        guard let comparison else { return }
+        offers[comparison.id] = nil
+        self.comparison = nil
+    }
+
+    private func adopt(_ pairing: Pairing) {
+        self.pairing = pairing
+        PairingStore.save(pairing)
+        channel = SecureChannel(key: pairing.key)
     }
 
     private static var serviceName: String {
@@ -91,7 +159,9 @@ final class HostController {
     private func accept(_ connection: NWConnection) {
         pending.append(connection)
         if pending.count > pendingLimit {
-            pending.removeFirst().cancel()
+            let dropped = pending.removeFirst()
+            offers[ObjectIdentifier(dropped)] = nil
+            dropped.cancel()
         }
         connection.start(queue: .main)
         receive(on: connection)
@@ -100,34 +170,86 @@ final class HostController {
     private func receive(on connection: NWConnection) {
         connection.receiveMessage { [weak self] data, _, _, error in
             guard let self, connection === self.connection || self.pending.contains(where: { $0 === connection }) else { return }
-            if let data, let (packet, counter) = self.channel.open(data), counter > self.lastCounter {
-                self.lastCounter = counter
-                self.promote(connection)
-                switch packet {
-                case let .mouse(report): self.handle(report)
-                case let .key(event): self.handle(event)
-                case let .volume(event): self.handle(event)
-                case let .gesture(event): self.handle(event)
-                }
+            if let data {
+                self.dispatch(data, from: connection)
             }
             if error == nil {
                 self.receive(on: connection)
             } else {
                 connection.cancel()
                 self.pending.removeAll { $0 === connection }
+                self.offers[ObjectIdentifier(connection)] = nil
             }
         }
+    }
+
+    private func dispatch(_ data: Data, from connection: NWConnection) {
+        if let (packet, counter) = channel.open(data, from: .phone) {
+            guard counter > lastCounter else { return }
+            lastCounter = counter
+            promote(connection)
+            switch packet {
+            case let .mouse(report): handle(report)
+            case let .key(event): handle(event)
+            case let .volume(event): handle(event)
+            case let .gesture(event): handle(event)
+            default: break
+            }
+            return
+        }
+        switch Packet(data: data) {
+        case let .pairHello(phoneKey): offer(to: connection, phoneKey: phoneKey)
+        case let .pairNonce(nonce): exchange(nonce, from: connection)
+        default: break
+        }
+    }
+
+    private func offer(to connection: NWConnection, phoneKey: Data) {
+        guard isPairingOpen, (try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: phoneKey)) != nil else { return }
+        let id = ObjectIdentifier(connection)
+        if offers[id]?.phoneKey != phoneKey {
+            guard offers.count < offerLimit else { return }
+            offers[id] = Offer(phoneKey: phoneKey, connection: connection)
+        }
+        guard let offer = offers[id] else { return }
+        let commitment = CodePairing.commitment(macNonce: offer.macNonce, macKey: offer.macKey, phoneKey: phoneKey)
+        connection.send(content: Packet.pairReply(publicKey: offer.macKey, commitment: commitment).encoded(), completion: .idempotent)
+    }
+
+    // The phone's nonce is taken once, so it cannot be swapped after the Mac's
+    // nonce is out.
+    private func exchange(_ phoneNonce: Data, from connection: NWConnection) {
+        let id = ObjectIdentifier(connection)
+        guard var offer = offers[id], offer.phoneNonce == nil || offer.phoneNonce == phoneNonce else { return }
+        if offer.isAllowed {
+            send(.ack(0), on: connection)
+            return
+        }
+        offer.phoneNonce = phoneNonce
+        offers[id] = offer
+        connection.send(content: Packet.pairNonceReply(offer.macNonce).encoded(), completion: .idempotent)
+        let code = CodePairing.code(phoneKey: offer.phoneKey, macKey: offer.macKey, phoneNonce: phoneNonce, macNonce: offer.macNonce)
+        if comparison?.id != id {
+            comparison = Comparison(code: code, id: id)
+        }
+    }
+
+    private func send(_ packet: Packet, on connection: NWConnection) {
+        sendCounter = SecureChannel.counter(after: sendCounter)
+        guard let data = channel.seal(packet, counter: sendCounter, from: .mac) else { return }
+        connection.send(content: data, completion: .idempotent)
     }
 
     private func promote(_ connection: NWConnection) {
         guard connection !== self.connection else { return }
         pending.removeAll { $0 === connection }
+        offers[ObjectIdentifier(connection)] = nil
         self.connection?.cancel()
         self.connection = connection
         lastSeq = nil
-        lastKeySeq = nil
         lastVolumeSeq = nil
         lastGestureSeq = nil
+        connections += 1
     }
 
     private func disconnect() {
@@ -149,8 +271,28 @@ final class HostController {
         driver.apply(report)
     }
 
+    // Key events arrive as an ordered stream that the phone keeps sending until
+    // they are acknowledged. The next one in line is typed, repeats and events
+    // past a gap are dropped. A jump far away means the app started a new
+    // stream, which begins at a random number.
     private func handle(_ event: KeyEvent) {
-        if let lastKeySeq, Int32(bitPattern: event.seq &- lastKeySeq) <= 0 { return }
+        let gap = lastKeySeq.map { Int32(bitPattern: event.seq &- $0) }
+        switch gap {
+        case .some(1), nil:
+            apply(event)
+        case let .some(step) where step > 1 && step < keyWindow:
+            break
+        case let .some(step) where step <= 0 && step > -keyWindow:
+            break
+        default:
+            apply(event)
+        }
+        if let lastKeySeq, let connection {
+            send(.ack(lastKeySeq), on: connection)
+        }
+    }
+
+    private func apply(_ event: KeyEvent) {
         lastKeySeq = event.seq
         keyboard.apply(event)
     }
@@ -175,6 +317,9 @@ final class HostController {
         if lastCounter != savedCounter {
             savedCounter = lastCounter
             UserDefaults.standard.set(String(lastCounter), forKey: Self.counterKey)
+        }
+        if isClientActive, let connection {
+            send(.ack(lastKeySeq ?? 0), on: connection)
         }
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }
         isClientActive = false

@@ -54,6 +54,7 @@ struct PairingView: View {
     static let windowID = "pair"
 
     let host: HostController
+    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         VStack(spacing: 16) {
@@ -65,7 +66,27 @@ struct PairingView: View {
                     .resizable()
                     .frame(width: 240, height: 240)
             }
-            Text("Only a phone that scanned this code can control this Mac. Traffic between them is encrypted.")
+            if let comparison = host.comparison {
+                VStack(spacing: 8) {
+                    Text("An iPhone wants to pair. Allow it only if it shows the same code.")
+                        .multilineTextAlignment(.center)
+                        .frame(width: 280)
+                    Text(comparison.code.prefix(3) + " " + comparison.code.suffix(3))
+                        .font(.system(size: 34, weight: .semibold, design: .monospaced))
+                    HStack {
+                        Button("Deny") { host.denyComparison() }
+                        Button("Allow") { host.allowComparison() }
+                            .keyboardShortcut(.defaultAction)
+                    }
+                }
+            } else {
+                Text("No camera handy? On the phone choose Pair by code and pick this Mac.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 280)
+            }
+            Text("Only a phone paired with this Mac can control it. Traffic between them is encrypted.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -74,6 +95,11 @@ struct PairingView: View {
                 .help("Unpairs the current phone")
         }
         .padding(24)
+        .onAppear { host.beginCodePairing() }
+        .onDisappear { host.endCodePairing() }
+        .onChange(of: host.connections) {
+            dismissWindow(id: Self.windowID)
+        }
     }
 
     private func qrImage(_ text: String) -> NSImage? {

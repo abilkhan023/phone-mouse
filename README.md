@@ -65,15 +65,21 @@ for through its default shortcut.
 | Three or four fingers up | Mission Control |
 | Three or four fingers down | App Exposé |
 | Three or four fingers left or right | Next or previous desktop |
-| Five fingers together | Apps (Launchpad) |
-| Five fingers apart | Show Desktop |
+| Four or five fingers together | Apps (Launchpad) |
+| Four or five fingers apart | Show Desktop |
 | Tap with three fingers | Look Up |
 | Pinch with two fingers | Zoom in or out |
 
 **Keyboard.** Above the iPhone keyboard sits a row of Mac keys that iOS lacks:
 esc, tab, forward delete, home, end, page up and down, F1 to F12, the arrows,
 and the modifiers ⌃ ⌥ ⌘ ⇧. A modifier stays on until the next key, so ⌘ then C
-copies. Shortcuts work with the Russian keyboard too.
+copies. Shortcuts work with the Russian keyboard too. Holding delete repeats
+and speeds up to whole words, as on the phone.
+
+Key events are numbered and the phone sends them again until the Mac confirms
+them, so nothing typed is lost when the connection drops: it arrives, in order,
+once the phone is back. The line of typed text survives restarts and scrolls
+sideways to show all of it.
 
 **Volume.** While connected, the phone's volume buttons change the Mac's volume.
 The phone's own volume stays where it was.
@@ -85,7 +91,17 @@ it with the phone. The code carries a random 256-bit key, and every packet is
 encrypted and signed with it (ChaCha20-Poly1305). The Mac ignores anything that
 was not sealed with that key and any packet it has already seen, so nobody else
 on the network can move the cursor or type. To pair again, choose Pair iPhone in
-the menu. New code there unpairs the old phone.
+the menu. New code there unpairs the old phone. The pairing window closes by
+itself once the phone connects.
+
+Without a camera, choose the Mac under Pair by code on the phone while the
+pairing window is open. Both screens show a six-digit code; click Allow on the
+Mac if they match. This is Bluetooth-style numeric comparison: the two devices
+agree on a key with Curve25519, and a commitment from the Mac makes a device in
+the middle fail the comparison with a chance of one in a million per try.
+
+The phone's glow lights up only while the Mac answers, which only a Mac with the
+same key can do.
 
 ## Requirements
 

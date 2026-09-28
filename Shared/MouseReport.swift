@@ -67,11 +67,25 @@ enum Packet: Equatable {
     case key(KeyEvent)
     case volume(VolumeEvent)
     case gesture(GestureEvent)
+    // The Mac confirms the key events it has typed, so the phone can send
+    // again whatever got lost.
+    case ack(UInt32)
+    // Pairing by code travels in the clear; see CodePairing.
+    case pairHello(publicKey: Data)
+    case pairReply(publicKey: Data, commitment: Data)
+    case pairNonce(Data)
+    case pairNonceReply(Data)
 
     private static let mouseTag: UInt8 = 1
     private static let keyTag: UInt8 = 2
     private static let volumeTag: UInt8 = 3
     private static let gestureTag: UInt8 = 4
+    private static let ackTag: UInt8 = 5
+    private static let helloTag: UInt8 = 6
+    private static let replyTag: UInt8 = 7
+    private static let nonceTag: UInt8 = 8
+    private static let nonceReplyTag: UInt8 = 9
+    private static let field = 32
     private static let mouseSize = 22
     private static let keyHeader = 6
     private static let volumeSize = 6
@@ -113,6 +127,23 @@ enum Packet: Equatable {
             guard data.count == Self.volumeSize,
                   let kind = GestureEvent.Kind(rawValue: data[data.startIndex + 5]) else { return nil }
             self = .gesture(GestureEvent(seq: data.readLittleEndian(at: 1), kind: kind))
+        case Self.ackTag:
+            guard data.count == 5 else { return nil }
+            self = .ack(data.readLittleEndian(at: 1))
+        case Self.replyTag:
+            guard data.count == 1 + 2 * Self.field else { return nil }
+            self = .pairReply(
+                publicKey: Data(data[data.startIndex + 1..<data.startIndex + 1 + Self.field]),
+                commitment: Data(data.suffix(Self.field))
+            )
+        case Self.helloTag, Self.nonceTag, Self.nonceReplyTag:
+            guard data.count == 1 + Self.field else { return nil }
+            let value = Data(data.suffix(Self.field))
+            switch tag {
+            case Self.helloTag: self = .pairHello(publicKey: value)
+            case Self.nonceTag: self = .pairNonce(value)
+            default: self = .pairNonceReply(value)
+            }
         default:
             return nil
         }
@@ -145,6 +176,22 @@ enum Packet: Equatable {
             data.append(Self.gestureTag)
             data.appendLittleEndian(event.seq)
             data.append(event.kind.rawValue)
+        case let .ack(seq):
+            data.append(Self.ackTag)
+            data.appendLittleEndian(seq)
+        case let .pairHello(publicKey):
+            data.append(Self.helloTag)
+            data.append(publicKey)
+        case let .pairReply(publicKey, commitment):
+            data.append(Self.replyTag)
+            data.append(publicKey)
+            data.append(commitment)
+        case let .pairNonce(nonce):
+            data.append(Self.nonceTag)
+            data.append(nonce)
+        case let .pairNonceReply(nonce):
+            data.append(Self.nonceReplyTag)
+            data.append(nonce)
         }
         return data
     }

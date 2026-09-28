@@ -19,7 +19,7 @@ struct ContentView: View {
                 VolumeKeysView(keys: controller.volumeKeys)
                     .frame(width: 1, height: 1)
                     .allowsHitTesting(false)
-                Shell(lit: controller.hostName != nil)
+                Shell(lit: controller.isLinked)
                 VStack(spacing: 0) {
                     Group {
                         switch controller.mode {
@@ -31,7 +31,7 @@ struct ContentView: View {
                     if controller.isTyping {
                         VStack(spacing: 8) {
                             MacKeyStrip(controller: controller)
-                            TypedLine(text: controller.typed)
+                            TypedLine(text: controller.typed, onClear: controller.clearTyped)
                                 .padding(.horizontal, 14)
                         }
                         .padding(.vertical, 8)
@@ -109,7 +109,7 @@ struct StatusBar: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Pair with a Mac")
-            Text(controller.hostName ?? "Looking for your Mac…")
+            Text(status)
                 .font(.marking(15))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
@@ -119,6 +119,16 @@ struct StatusBar: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 48)
+    }
+}
+
+extension StatusBar {
+    private var status: String {
+        switch (controller.hostName, controller.isLinked) {
+        case let (name?, true): name
+        case let (name?, false): "Connecting to \(name)…"
+        case (nil, _): "Looking for your Mac…"
+        }
     }
 }
 
@@ -156,28 +166,88 @@ struct PairingSheet: View {
     var body: some View {
         ZStack(alignment: .top) {
             Palette.shellBottom
-            VStack(spacing: 20) {
-                PairingScanner { controller.pair(with: $0) }
-                    .frame(width: 260, height: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 28))
-                    .overlay(RoundedRectangle(cornerRadius: 28).stroke(Palette.groove, lineWidth: 2))
-                Text("Pair with your Mac")
-                    .font(.marking(22))
-                    .foregroundStyle(Palette.ink)
-                Text("On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.")
+            ScrollView {
+                VStack(spacing: 18) {
+                    PairingScanner { controller.pair(with: $0) }
+                        .frame(width: 240, height: 240)
+                        .clipShape(RoundedRectangle(cornerRadius: 28))
+                        .overlay(RoundedRectangle(cornerRadius: 28).stroke(Palette.groove, lineWidth: 2))
+                    Text("Pair with your Mac")
+                        .font(.marking(22))
+                        .foregroundStyle(Palette.ink)
+                    Text("On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.")
+                        .font(.marking(15))
+                        .foregroundStyle(Palette.ink.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    CodePairingSection(controller: controller)
+                        .padding(.horizontal, 24)
+                    if controller.pairing != nil {
+                        Button("Cancel") {
+                            controller.cancelCodePairing()
+                            controller.isPairing = false
+                        }
+                        .font(.marking(17))
+                        .foregroundStyle(Palette.ink)
+                    }
+                }
+                .padding(.top, 70)
+                .padding(.bottom, 40)
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct CodePairingSection: View {
+    let controller: MouseController
+
+    var body: some View {
+        VStack(spacing: 10) {
+            switch controller.codeState {
+            case .idle:
+                Text("Or pair by code, with the pairing window open on the Mac:")
                     .font(.marking(15))
                     .foregroundStyle(Palette.ink.opacity(0.7))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                if controller.pairing != nil {
-                    Button("Cancel") { controller.isPairing = false }
-                        .font(.marking(17))
-                        .foregroundStyle(Palette.ink)
+                if controller.nearbyHosts.isEmpty {
+                    Text("Looking for Macs…")
+                        .font(.marking(15))
+                        .foregroundStyle(Palette.ink.opacity(0.5))
                 }
+                ForEach(controller.nearbyHosts, id: \.self) { name in
+                    Button { controller.pairByCode(with: name) } label: {
+                        Text(name)
+                            .font(.marking(17))
+                            .foregroundStyle(Palette.ink)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.groove, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                }
+            case let .waiting(name):
+                Text("Asking \(name)…")
+                    .font(.marking(17))
+                    .foregroundStyle(Palette.ink)
+            case let .comparing(name, code):
+                Text(code.prefix(3) + " " + code.suffix(3))
+                    .font(.system(size: 40, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Palette.ink)
+                Text("If \(name) shows the same code, click Allow on the Mac.")
+                    .font(.marking(15))
+                    .foregroundStyle(Palette.ink.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            case let .failed(message):
+                Text(message)
+                    .font(.marking(15))
+                    .foregroundStyle(Palette.led)
+                    .multilineTextAlignment(.center)
+                Button("Try again") { controller.cancelCodePairing() }
+                    .font(.marking(17))
+                    .foregroundStyle(Palette.ink)
             }
-            .padding(.top, 70)
         }
-        .ignoresSafeArea()
     }
 }
 
@@ -264,26 +334,48 @@ struct MacKeyStrip: View {
 
 struct TypedLine: View {
     let text: String
+    let onClear: () -> Void
 
     var body: some View {
-        HStack(spacing: 2) {
-            Text(text.isEmpty ? "Start typing" : text)
-                .font(.marking(17))
-                .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
-                .lineLimit(1)
-                .truncationMode(.head)
-            Rectangle()
-                .fill(Palette.led)
-                .frame(width: 2, height: 20)
-            Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            ScrollViewReader { reader in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 2) {
+                        Text(text.isEmpty ? "Start typing" : text.replacingOccurrences(of: "\n", with: " ⏎ "))
+                            .font(.marking(17))
+                            .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
+                            .fixedSize()
+                        Rectangle()
+                            .fill(Palette.led)
+                            .frame(width: 2, height: 20)
+                            .id(Self.end)
+                    }
+                }
+                .defaultScrollAnchor(.trailing)
+                .onChange(of: text) {
+                    reader.scrollTo(Self.end, anchor: .trailing)
+                }
+            }
+            if !text.isEmpty {
+                Button(action: onClear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Palette.ink.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear typed text")
+            }
         }
         .padding(.horizontal, 16)
         .frame(height: 44)
         .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.groove, lineWidth: 2))
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Typed text")
         .accessibilityValue(text)
     }
+
+    private static let end = "end"
 }
 
 struct ButtonDeck: View {

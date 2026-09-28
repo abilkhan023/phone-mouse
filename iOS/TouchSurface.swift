@@ -55,7 +55,7 @@ final class TouchSurfaceView: UIView {
     }
 
     // Three or more fingers make one gesture per touch, like on a Mac
-    // trackpad: a swipe, or with five fingers a pinch or a spread.
+    // trackpad: a swipe, or with four or five fingers a pinch or a spread.
     private func resetBaseline() {
         startCenter = touchCenter
         startSpread = spread
@@ -78,7 +78,7 @@ final class TouchSurfaceView: UIView {
         guard !fired else { return }
         let now = touchCenter
         let shift = CGPoint(x: now.x - startCenter.x, y: now.y - startCenter.y)
-        if active.count >= 5, startSpread > 0 {
+        if active.count >= 4, startSpread > 0 {
             let ratio = spread / startSpread
             if ratio < 1 - pinchRatio { return fire(.pinchIn) }
             if ratio > 1 + pinchRatio { return fire(.spreadOut) }

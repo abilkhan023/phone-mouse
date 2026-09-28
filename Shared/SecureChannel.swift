@@ -6,14 +6,21 @@ import Security
 // devices share after pairing. The nonce carries a counter that only grows,
 // so the Mac drops anything forged, altered or replayed.
 struct SecureChannel {
+    // Both sides draw counters from the clock, so the sender goes into the
+    // nonce as well to keep the two directions from ever sharing a nonce.
+    enum Sender: UInt8 {
+        case phone
+        case mac
+    }
+
     private static let tag: UInt8 = 0xE1
     private static let counterSize = 8
     private static let overhead = 1 + counterSize + 16
 
     let key: SymmetricKey
 
-    func seal(_ packet: Packet, counter: UInt64) -> Data? {
-        guard let box = try? ChaChaPoly.seal(packet.encoded(), using: key, nonce: Self.nonce(counter)) else { return nil }
+    func seal(_ packet: Packet, counter: UInt64, from sender: Sender) -> Data? {
+        guard let box = try? ChaChaPoly.seal(packet.encoded(), using: key, nonce: Self.nonce(counter, sender)) else { return nil }
         var data = Data([Self.tag])
         Swift.withUnsafeBytes(of: counter.littleEndian) { data.append(contentsOf: $0) }
         data.append(box.ciphertext)
@@ -21,7 +28,7 @@ struct SecureChannel {
         return data
     }
 
-    func open(_ data: Data) -> (packet: Packet, counter: UInt64)? {
+    func open(_ data: Data, from sender: Sender) -> (packet: Packet, counter: UInt64)? {
         guard data.count > Self.overhead, data.first == Self.tag else { return nil }
         var counter: UInt64 = 0
         Swift.withUnsafeMutableBytes(of: &counter) {
@@ -30,7 +37,7 @@ struct SecureChannel {
         counter = UInt64(littleEndian: counter)
         let body = data.dropFirst(1 + Self.counterSize)
         guard let box = try? ChaChaPoly.SealedBox(
-                nonce: Self.nonce(counter),
+                nonce: Self.nonce(counter, sender),
                 ciphertext: body.dropLast(16),
                 tag: body.suffix(16)
               ),
@@ -39,8 +46,13 @@ struct SecureChannel {
         return (packet, counter)
     }
 
-    private static func nonce(_ counter: UInt64) -> ChaChaPoly.Nonce {
+    static func counter(after last: UInt64) -> UInt64 {
+        max(last + 1, UInt64(Date().timeIntervalSince1970 * 1_000_000))
+    }
+
+    private static func nonce(_ counter: UInt64, _ sender: Sender) -> ChaChaPoly.Nonce {
         var bytes = [UInt8](repeating: 0, count: 12)
+        bytes[0] = sender.rawValue
         Swift.withUnsafeBytes(of: counter.littleEndian) { bytes.replaceSubrange(4..<12, with: $0) }
         return try! ChaChaPoly.Nonce(data: bytes)
     }
