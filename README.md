@@ -207,9 +207,8 @@ Touchpad mode has none of these limits.
 
 ## Security
 
-There is no pairing and no encryption. Any device on the same network can send
-reports to the companion and move the cursor. Use Phone Mouse on networks you
-trust.
+Only a paired phone can control the Mac: everything it sends is encrypted and
+signed with the key from pairing. See Pairing and encryption above.
 
 ## Project layout
 
