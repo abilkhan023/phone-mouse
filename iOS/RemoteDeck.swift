@@ -426,6 +426,7 @@ private struct ActionsPad: View {
                     RepeatKey(repeats: false, action: { controller.gesture(action.kind) }) { pressed in
                         row(symbol: action.symbol, name: action.name, detail: action.detail, pressed: pressed)
                     }
+                    .dimmed(action.kind == .lockScreen && controller.isMacLocked == true)
                     if action.kind == .lockScreen {
                         unlockRow
                     }
@@ -457,6 +458,7 @@ private struct ActionsPad: View {
             RepeatKey(repeats: false, action: { controller.unlockMac() }) { pressed in
                 row(symbol: "lock.open.fill", name: "Unlock Mac", detail: "Types the Mac's password on its lock screen, after Face ID.", pressed: pressed)
             }
+            .dimmed(controller.isMacLocked == false)
             Menu {
                 Button("Change password", systemImage: "key.fill") { controller.changeMacPassword() }
                 Button("Forget password", systemImage: "trash", role: .destructive) { controller.forgetMacPassword() }
@@ -493,6 +495,15 @@ private struct ActionsPad: View {
         .background(pressed ? Palette.ink : Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
         .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    // A button that has nothing to do right now: faded and untouchable.
+    func dimmed(_ off: Bool) -> some View {
+        opacity(off ? 0.35 : 1)
+            .allowsHitTesting(!off)
+            .animation(.snappy, value: off)
     }
 }
 

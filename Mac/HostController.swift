@@ -37,6 +37,8 @@ final class HostController {
     @ObservationIgnored private var lastHeartbeatAt: TimeInterval = 0
     @ObservationIgnored private var frontApp: FrontApp?
     @ObservationIgnored private var frontAppSentAt: TimeInterval = 0
+    @ObservationIgnored private var screenLocked: Bool?
+    @ObservationIgnored private var screenLockedSentAt: TimeInterval = 0
     // Keeps macOS from napping the companion in the background, which would
     // delay its timers: the heartbeat, and the cursor smoothing.
     @ObservationIgnored private let activity = ProcessInfo.processInfo.beginActivity(
@@ -350,6 +352,17 @@ final class HostController {
     // The phone shows what is open on the Mac. The window title needs the
     // accessibility permission the companion has anyway. Sent on a change,
     // and again now and then in case it got lost.
+    // Sent on a change, and again now and then in case it got lost.
+    private func reportScreenLock() {
+        guard let connection else { return }
+        let locked = ScreenUnlocker.isLocked
+        let now = ProcessInfo.processInfo.systemUptime
+        guard locked != screenLocked || now - screenLockedSentAt > 2 else { return }
+        screenLocked = locked
+        screenLockedSentAt = now
+        send(.screenLocked(locked), on: connection)
+    }
+
     private func reportFrontApp() {
         guard let connection, let app = NSWorkspace.shared.frontmostApplication else { return }
         let current = FrontApp(
@@ -617,6 +630,7 @@ final class HostController {
         if isClientActive {
             heartbeat()
             reportFrontApp()
+            reportScreenLock()
         }
         checkPasteboard()
         guard isClientActive, ProcessInfo.processInfo.systemUptime - lastReportAt > silenceTimeout else { return }

@@ -193,6 +193,9 @@ enum Packet: Equatable {
     // says how it went.
     case unlock(password: String)
     case unlockResult(UnlockOutcome)
+    // Whether the Mac's screen is locked, so the phone offers only the
+    // button that makes sense.
+    case screenLocked(Bool)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -230,6 +233,7 @@ enum Packet: Equatable {
     private static let copySelectionTag: UInt8 = 26
     private static let unlockTag: UInt8 = 27
     private static let unlockResultTag: UInt8 = 28
+    private static let screenLockedTag: UInt8 = 29
     private static let field = 32
     private static let mouseSize = 23
     private static let keyHeader = 6
@@ -318,6 +322,9 @@ enum Packet: Equatable {
         case Self.unlockResultTag:
             guard data.count == 2, let outcome = UnlockOutcome(rawValue: data[data.startIndex + 1]) else { return nil }
             self = .unlockResult(outcome)
+        case Self.screenLockedTag:
+            guard data.count == 2 else { return nil }
+            self = .screenLocked(data[data.startIndex + 1] != 0)
         case Self.frontAppTag:
             let fields = String(decoding: data.dropFirst(), as: UTF8.self).components(separatedBy: FrontApp.separator)
             guard fields.count == 3 else { return nil }
@@ -416,6 +423,8 @@ enum Packet: Equatable {
             data.append(contentsOf: password.utf8)
         case let .unlockResult(outcome):
             data.append(contentsOf: [Self.unlockResultTag, outcome.rawValue])
+        case let .screenLocked(locked):
+            data.append(contentsOf: [Self.screenLockedTag, locked ? 1 : 0])
         case let .frontApp(app):
             data.append(Self.frontAppTag)
             data.append(contentsOf: [app.bundleID, app.name, String(app.title.prefix(FrontApp.titleLimit))]

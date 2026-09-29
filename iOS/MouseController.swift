@@ -94,6 +94,8 @@ final class MouseController {
     // True while the phone asks for the Mac's password: none is saved yet,
     // or the Mac stayed locked with the saved one.
     private(set) var asksMacPassword = false
+    // Whether the Mac's screen is locked; nil while it is not known.
+    private(set) var isMacLocked: Bool?
     var remoteTab: RemoteTab {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
@@ -693,6 +695,11 @@ final class MouseController {
         case let .apps(list):
             apps = list
             return
+        case let .screenLocked(locked):
+            if locked != isMacLocked {
+                isMacLocked = locked
+            }
+            return
         case let .unlockResult(outcome):
             unlocked(outcome)
             return
@@ -741,6 +748,7 @@ final class MouseController {
         isLinked = linked
         if !linked {
             frontApp = nil
+            isMacLocked = nil
         }
         if linked {
             volumeKeys.start()
