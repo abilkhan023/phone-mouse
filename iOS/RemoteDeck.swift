@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct RemoteDeck: View {
     let controller: MouseController
+    @State private var macPassword = ""
 
     // Six pages fit in one row when short names take less room than long ones.
     init(controller: MouseController) {
@@ -29,6 +30,19 @@ struct RemoteDeck: View {
             }
         }
         .padding(.horizontal, 14)
+        .alert("Mac password", isPresented: Binding(
+            get: { controller.asksMacPassword },
+            set: { if !$0 { controller.cancelMacPassword() } }
+        )) {
+            SecureField("Password", text: $macPassword)
+            Button("Save and unlock") {
+                controller.saveMacPassword(macPassword)
+                macPassword = ""
+            }
+            Button("Cancel", role: .cancel) { macPassword = "" }
+        } message: {
+            Text("Kept on this iPhone and opened with Face ID. Sent to \(controller.hostName ?? "the Mac") only to unlock it.")
+        }
     }
 }
 
@@ -412,6 +426,9 @@ private struct ActionsPad: View {
                     RepeatKey(repeats: false, action: { controller.gesture(action.kind) }) { pressed in
                         row(symbol: action.symbol, name: action.name, detail: action.detail, pressed: pressed)
                     }
+                    if action.kind == .lockScreen {
+                        unlockRow
+                    }
                 }
                 HStack(spacing: 12) {
                     ClipboardButton(controller: controller)
@@ -430,6 +447,28 @@ private struct ActionsPad: View {
                 .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
             }
+        }
+    }
+
+    // Touched like the rows around it; the menu on the right changes or
+    // forgets the saved password.
+    private var unlockRow: some View {
+        HStack(spacing: 8) {
+            RepeatKey(repeats: false, action: { controller.unlockMac() }) { pressed in
+                row(symbol: "lock.open.fill", name: "Unlock Mac", detail: "Types the Mac's password on its lock screen, after Face ID.", pressed: pressed)
+            }
+            Menu {
+                Button("Change password", systemImage: "key.fill") { controller.changeMacPassword() }
+                Button("Forget password", systemImage: "trash", role: .destructive) { controller.forgetMacPassword() }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Palette.ink)
+                    .frame(width: 44, height: 60)
+                    .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
+            }
+            .accessibilityLabel("Password options")
         }
     }
 

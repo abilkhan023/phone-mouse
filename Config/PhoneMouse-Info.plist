@@ -8,6 +8,8 @@
 	<string>Phone Mouse listens while you dictate, to type what you say on your Mac.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Phone Mouse turns what you say into text and types it on your Mac.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Phone Mouse uses Face ID before it sends your Mac's password to unlock it.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Phone Mouse uses the camera once to scan the pairing code shown on your Mac.</string>
 	<key>NSBonjourServices</key>

@@ -82,9 +82,11 @@ has, only while this page is open; for an app that keeps its selection to
 itself, Take selection copies it with ⌘C and puts the clipboard back. Both
 languages are chosen on the page, with a button to swap them; the source is
 told from the text unless one is set. Actions: find
-the pointer, next window, lock the screen, sleep the display, screenshots,
+the pointer, next window, lock the screen, unlock it, sleep the display, screenshots,
 Mission Control, show the desktop, Apps, emoji, force quit, and sending the
-clipboard.
+clipboard. Unlock keeps the Mac's password in the iPhone's keychain behind
+Face ID; the Mac types it only while its screen is locked, and keeps it
+nowhere. It cannot get past the first login after a restart.
 
 **Find the pointer.** Shake the phone and a ring pulses around the cursor on the
 Mac for a moment.

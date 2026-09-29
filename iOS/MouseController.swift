@@ -1,4 +1,5 @@
 import CoreMotion
+import LocalAuthentication
 import Observation
 import UIKit
 
@@ -90,6 +91,9 @@ final class MouseController {
     private(set) var selectedText: String?
     // Newest first, for this launch only.
     private(set) var translations: [TranslatedText] = []
+    // True while the phone asks for the Mac's password: none is saved yet,
+    // or the Mac stayed locked with the saved one.
+    private(set) var asksMacPassword = false
     var remoteTab: RemoteTab {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
@@ -133,6 +137,7 @@ final class MouseController {
     @ObservationIgnored private var dictated = ""
     @ObservationIgnored private var screenTimer: Timer?
     @ObservationIgnored private var selectionTimer: Timer?
+    @ObservationIgnored private var isRunning = false
     @ObservationIgnored private var shakes: [TimeInterval] = []
     @ObservationIgnored private var lastShakeAt: TimeInterval = 0
     @ObservationIgnored private var laserHeld = false
@@ -197,6 +202,8 @@ final class MouseController {
     }
 
     func start() {
+        guard !isRunning else { return }
+        isRunning = true
         UIApplication.shared.isIdleTimerDisabled = true
         link.start()
         if motion.isDeviceMotionAvailable {
@@ -214,6 +221,8 @@ final class MouseController {
     }
 
     func stop() {
+        guard isRunning else { return }
+        isRunning = false
         motion.stopDeviceMotionUpdates()
         fallbackTimer?.invalidate()
         fallbackTimer = nil
@@ -341,6 +350,79 @@ final class MouseController {
 
     func remember(_ item: TranslatedText) {
         translations = Array(([item] + translations).prefix(translationLimit))
+    }
+
+    // The password is read with Face ID and typed by the Mac on its lock
+    // screen, which it does only while the screen is locked.
+    func unlockMac() {
+        haptics.impactOccurred(intensity: 0.6)
+        guard let host = hostName, isLinked else {
+            show("Not connected to a Mac yet")
+            return
+        }
+        guard MacPasswords.has(host) else {
+            asksMacPassword = true
+            return
+        }
+        show("Asking for Face ID…")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let read = MacPasswords.read(host, reason: "Unlock \(host)")
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch read {
+                case let .success(password):
+                    self.link.sendReliably(.unlock(password: password))
+                    self.show("Unlocking…")
+                case let .failure(error):
+                    self.show("Password not read (\(error.status))")
+                }
+            }
+        }
+    }
+
+    // Face ID confirms the password is saved by the phone's owner; it is
+    // then sent at once, so it does not ask for Face ID twice.
+    func saveMacPassword(_ password: String) {
+        asksMacPassword = false
+        guard let host = hostName, !password.isEmpty else { return }
+        LAContext().evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Save the password for \(host)") { granted, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard granted, MacPasswords.save(password, for: host) else {
+                    self.show("Password not saved")
+                    return
+                }
+                self.link.sendReliably(.unlock(password: password))
+                self.show("Unlocking…")
+            }
+        }
+    }
+
+    func changeMacPassword() {
+        asksMacPassword = true
+    }
+
+    func cancelMacPassword() {
+        asksMacPassword = false
+    }
+
+    func forgetMacPassword() {
+        guard let host = hostName else { return }
+        MacPasswords.forget(host)
+        show("Password forgotten")
+    }
+
+    private func unlocked(_ outcome: UnlockOutcome) {
+        switch outcome {
+        case .notLocked:
+            show("The Mac is not locked")
+        case .unlocked:
+            show("Unlocked")
+            haptics.impactOccurred(intensity: 1)
+        case .stillLocked:
+            show("Still locked. Check the password")
+            asksMacPassword = true
+        }
     }
 
     func clearTranslations() {
@@ -610,6 +692,9 @@ final class MouseController {
             return
         case let .apps(list):
             apps = list
+            return
+        case let .unlockResult(outcome):
+            unlocked(outcome)
             return
         case let .selection(text):
             if selectionTimer != nil {

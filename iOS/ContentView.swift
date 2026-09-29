@@ -87,11 +87,14 @@ struct ContentView: View {
         .persistentSystemOverlays(.hidden)
         .defersSystemGestures(on: .vertical)
         .statusBarHidden()
+        // Only leaving for the background stops the link. Face ID, Control
+        // Center and the notification shade make the app inactive for a
+        // moment, and an unlock sent right after Face ID needs the link up.
         .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .active {
-                controller.start()
-            } else {
-                controller.stop()
+            switch phase {
+            case .active: controller.start()
+            case .background: controller.stop()
+            default: break
             }
         }
     }

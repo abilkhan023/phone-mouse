@@ -76,6 +76,7 @@ final class HostController {
     private let finder = PointerFinder()
     private let streamer = ScreenStreamer()
     private let selection = SelectionReader()
+    private let unlocker = ScreenUnlocker()
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
     private let offerLimit = 8
@@ -250,8 +251,21 @@ final class HostController {
             selection.request(on)
         case .copySelection:
             copySelection()
+        case let .unlock(password):
+            unlocker.unlock(password: password, keyboard: keyboard) { [weak self] outcome in
+                self?.reply(.unlockResult(outcome))
+            }
         default:
             break
+        }
+    }
+
+    // Over TCP when it is up, otherwise as a datagram.
+    private func reply(_ packet: Packet) {
+        if let clipStream {
+            clipStream.send(packet)
+        } else if let connection {
+            send(packet, on: connection)
         }
     }
 

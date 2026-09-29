@@ -149,6 +149,12 @@ struct ClipboardItem: Equatable {
     var data: Data
 }
 
+enum UnlockOutcome: UInt8 {
+    case notLocked
+    case unlocked
+    case stillLocked
+}
+
 enum Packet: Equatable {
     case mouse(MouseReport)
     case key(KeyEvent)
@@ -183,6 +189,10 @@ enum Packet: Equatable {
     case selectionWatch(Bool)
     case selection(String)
     case copySelection
+    // The phone sends the Mac's password to type on the lock screen; the Mac
+    // says how it went.
+    case unlock(password: String)
+    case unlockResult(UnlockOutcome)
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -218,6 +228,8 @@ enum Packet: Equatable {
     private static let selectionWatchTag: UInt8 = 24
     private static let selectionTag: UInt8 = 25
     private static let copySelectionTag: UInt8 = 26
+    private static let unlockTag: UInt8 = 27
+    private static let unlockResultTag: UInt8 = 28
     private static let field = 32
     private static let mouseSize = 23
     private static let keyHeader = 6
@@ -301,6 +313,11 @@ enum Packet: Equatable {
         case Self.copySelectionTag:
             guard data.count == 1 else { return nil }
             self = .copySelection
+        case Self.unlockTag:
+            self = .unlock(password: String(decoding: data.dropFirst(), as: UTF8.self))
+        case Self.unlockResultTag:
+            guard data.count == 2, let outcome = UnlockOutcome(rawValue: data[data.startIndex + 1]) else { return nil }
+            self = .unlockResult(outcome)
         case Self.frontAppTag:
             let fields = String(decoding: data.dropFirst(), as: UTF8.self).components(separatedBy: FrontApp.separator)
             guard fields.count == 3 else { return nil }
@@ -394,6 +411,11 @@ enum Packet: Equatable {
             data.append(contentsOf: text.utf8)
         case .copySelection:
             data.append(Self.copySelectionTag)
+        case let .unlock(password):
+            data.append(Self.unlockTag)
+            data.append(contentsOf: password.utf8)
+        case let .unlockResult(outcome):
+            data.append(contentsOf: [Self.unlockResultTag, outcome.rawValue])
         case let .frontApp(app):
             data.append(Self.frontAppTag)
             data.append(contentsOf: [app.bundleID, app.name, String(app.title.prefix(FrontApp.titleLimit))]
