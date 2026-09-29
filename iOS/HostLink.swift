@@ -42,16 +42,17 @@ final class HostLink {
     private var hasWifi = false
     private var usesPeerToPeer = false
     private var channel: SecureChannel?
-    private var connectedName: String?
+    private var connected: Pairing?
     private var counter: UInt64 = 0
     private var macCounter: UInt64 = 0
     private var clipStream: ClipboardStream?
     private var interfaceMonitor: NWPathMonitor?
     private var hasCable = false
     private var cableFailedUntil: TimeInterval = 0
-    private var cableCheck: Timer?
-    private var heardFromMac = false
-    private let cableTimeout = 2.5
+    private var silenceCheck: Timer?
+    private var triesCable = false
+    private var lastHeardAt: TimeInterval = 0
+    private let silenceTimeout = 2.5
     private let cableRetry = 30.0
 
     private let fallbackDelay = 3.0
@@ -189,11 +190,11 @@ final class HostLink {
     }
 
     private func disconnect() {
-        cableCheck?.invalidate()
-        cableCheck = nil
+        silenceCheck?.invalidate()
+        silenceCheck = nil
         connection?.cancel()
         connection = nil
-        connectedName = nil
+        connected = nil
         channel = nil
         clipStream?.close()
         clipStream = nil
@@ -214,10 +215,12 @@ final class HostLink {
         let names = results.compactMap { Self.name(of: $0.endpoint) }
         onHostsChange?(names.sorted())
         let target = pairings.first { names.contains($0.hostName) }
-        if let connection, let target, target.hostName == connectedName,
+        // A new key for the same Mac, after pairing again, needs a new
+        // connection just as much as another Mac does.
+        if let connection, let target, target == connected,
            results.contains(where: { $0.endpoint == connection.endpoint }) { return }
         disconnect()
-        guard let target, let endpoint = results.map(\.endpoint).first(where: { Self.name(of: $0) == target.hostName }) else {
+        guard let target, let result = results.first(where: { Self.name(of: $0.endpoint) == target.hostName }) else {
             onHostChange?(nil)
             if !usesPeerToPeer {
                 scheduleFallback()
@@ -227,24 +230,28 @@ final class HostLink {
         fallbackTimer?.invalidate()
         fallbackTimer = nil
         channel = SecureChannel(key: target.key)
-        connectedName = target.hostName
-        connect(to: endpoint)
+        connected = target
+        connect(to: result)
     }
 
-    private func connect(to endpoint: NWEndpoint) {
+    private func connect(to result: NWBrowser.Result) {
+        let endpoint = result.endpoint
         macCounter = 0
-        heardFromMac = false
         let parameters = Self.parameters(peerToPeer: usesPeerToPeer)
+        // Once the shared network has failed, the connection must not wander
+        // back to it, so it is tied to the peer-to-peer interface.
+        if usesPeerToPeer, let direct = result.interfaces.first(where: { $0.name.hasPrefix("awdl") || $0.name.hasPrefix("llw") }) {
+            parameters.requiredInterface = direct
+        }
         let now = ProcessInfo.processInfo.systemUptime
-        let triesCable = preference == .cable || (preference == .automatic && hasCable && now > cableFailedUntil)
+        lastHeardAt = now
+        triesCable = preference == .cable || (preference == .automatic && hasCable && now > cableFailedUntil)
         if triesCable {
             parameters.prohibitedInterfaceTypes = [.wifi, .cellular]
         } else if preference == .wifi {
             parameters.prohibitedInterfaceTypes = [.wiredEthernet]
         }
-        if triesCable, preference == .automatic {
-            watchCable()
-        }
+        watchSilence()
         let connection = NWConnection(to: endpoint, using: parameters)
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let self, let connection, connection === self.connection else { return }
@@ -270,16 +277,32 @@ final class HostLink {
         }
     }
 
-    // If the Mac does not answer over the cable soon, the cable is not a way
-    // to it after all, and the link goes back to Wi-Fi for a while.
-    private func watchCable() {
-        let timer = Timer(timeInterval: cableTimeout, repeats: false) { [weak self] _ in
-            guard let self, !self.heardFromMac else { return }
-            self.cableFailedUntil = ProcessInfo.processInfo.systemUptime + self.cableRetry
-            self.reconnect()
+    // The Mac answers several times a second. When it falls silent, the
+    // connection may point at a port the Mac no longer listens on, as after
+    // it restarts under the same name, so the link looks the Mac up again.
+    // If the Mac never answered over the cable, the cable is not a way to it
+    // after all, and the link goes back to Wi-Fi for a while. If it never
+    // answered over the shared network, that network keeps its devices apart,
+    // as office networks often do while still passing Bonjour, and the link
+    // goes peer to peer.
+    private func watchSilence() {
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let now = ProcessInfo.processInfo.systemUptime
+            guard now - self.lastHeardAt > self.silenceTimeout else { return }
+            if self.triesCable {
+                if self.preference == .automatic, self.macCounter == 0 {
+                    self.cableFailedUntil = now + self.cableRetry
+                }
+                self.reconnect()
+            } else if !self.usesPeerToPeer, self.macCounter == 0 {
+                self.browse(peerToPeer: true)
+            } else {
+                self.reconnect()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
-        cableCheck = timer
+        silenceCheck = timer
     }
 
     private func receive(on connection: NWConnection) {
@@ -288,7 +311,7 @@ final class HostLink {
             if let data, let channel = self.channel,
                let (packet, counter) = channel.open(data, from: .mac), counter > self.macCounter {
                 self.macCounter = counter
-                self.heardFromMac = true
+                self.lastHeardAt = ProcessInfo.processInfo.systemUptime
                 if case let .clipboardPort(port) = packet {
                     self.openClipboard(port: port)
                 } else {
