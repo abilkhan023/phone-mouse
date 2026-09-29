@@ -147,7 +147,6 @@ final class MouseController {
     @ObservationIgnored private var pingSentAt: [UInt32: TimeInterval] = [:]
     @ObservationIgnored private var noticeTimer: Timer?
 
-    private static let modeKey = "pointerMode"
     private static let typedKey = "typedText"
     private static let remoteKey = "remoteTab"
 
@@ -181,7 +180,8 @@ final class MouseController {
     private let translationLimit = 20
 
     init() {
-        mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
+        // Each launch starts on the touchpad, whatever was used last time.
+        mode = .touchpad
         let keyStart = UInt32.random(in: .min ... .max)
         keySeq = keyStart
         keyStreamStart = keyStart &+ 1
@@ -520,7 +520,6 @@ final class MouseController {
         desk.reset()
         air.reset()
         pendingMove = .zero
-        UserDefaults.standard.set(mode.rawValue, forKey: Self.modeKey)
     }
 
     func setButton(_ button: MouseButtons, pressed: Bool) {
