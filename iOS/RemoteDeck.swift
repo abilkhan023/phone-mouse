@@ -192,17 +192,13 @@ private struct AppsPad: View {
 
 // A live picture of the Mac's main display. A tap clicks at that spot, two
 // taps double-click, and a finger sliding over it leads the cursor without
-// clicking. The picture lies turned a quarter clockwise by default, so with
-// the phone held sideways the Mac's wide screen fills the tall page.
+// clicking. Two fingers pinch to zoom in and move the picture around. The
+// picture lies turned a quarter clockwise, so with the phone held sideways the
+// Mac's wide screen fills the tall page.
 private struct ScreenPad: View {
     let controller: MouseController
-    @State private var sliding = false
-    @State private var lastPointAt = Date.distantPast
-    @AppStorage("screenTurned") private var turned = true
     @Environment(\.displayScale) private var displayScale
 
-    private let slop: CGFloat = 8
-    private let pointInterval = 1.0 / 30
     private let hintHeight: CGFloat = 30
 
     var body: some View {
@@ -210,37 +206,27 @@ private struct ScreenPad: View {
             content
                 .onAppear { request(for: box.size) }
                 .onChange(of: box.size) { _, size in request(for: size) }
-                .onChange(of: turned) { request(for: box.size) }
         }
         .onDisappear { controller.watchScreen(width: 0) }
     }
 
-    // The Mac's width lies along the page's height when turned, so frames are
-    // asked for that many pixels wide.
+    // The Mac's width lies along the page's height, so frames are asked for
+    // that many pixels wide.
     private func request(for size: CGSize) {
-        let length = turned ? size.height - hintHeight - 12 : size.width - 12
-        controller.watchScreen(width: Int(length * displayScale))
+        controller.watchScreen(width: Int((size.height - hintHeight - 12) * displayScale))
     }
 
     private var content: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack {
             RoundedRectangle(cornerRadius: 18).fill(Palette.groove)
             if let image = controller.screenImage {
                 VStack(spacing: 8) {
-                    Image(uiImage: shown(image))
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fit)
-                        .overlay {
-                            GeometryReader { box in
-                                Color.clear
-                                    .contentShape(Rectangle())
-                                    .gesture(pointing(in: box.size))
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Text("Tap to click there · slide a finger to move the cursor")
+                    ZoomableScreen(image: shown(image)) { spot, click in
+                        point(spot, click: click)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Text("Tap to click · slide to move · pinch to zoom")
                         .font(.marking(12))
                         .foregroundStyle(Palette.ink.opacity(0.6))
                         .frame(height: hintHeight - 8)
@@ -254,46 +240,140 @@ private struct ScreenPad: View {
                     .padding(24)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Button { turned.toggle() } label: {
-                Image(systemName: turned ? "rectangle.portrait.rotate" : "rectangle.landscape.rotate")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Palette.ink)
-                    .frame(width: 36, height: 36)
-                    .background(Palette.pressed.opacity(0.85), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .padding(10)
-            .accessibilityLabel(turned ? "Show the screen upright" : "Turn the screen sideways")
         }
     }
 
     private func shown(_ image: UIImage) -> UIImage {
-        guard turned, let cgImage = image.cgImage else { return image }
+        guard let cgImage = image.cgImage else { return image }
         return UIImage(cgImage: cgImage, scale: image.scale, orientation: .right)
     }
 
-    private func pointing(in size: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { drag in
-                if !sliding, hypot(drag.translation.width, drag.translation.height) > slop {
-                    sliding = true
-                }
-                guard sliding, Date().timeIntervalSince(lastPointAt) > pointInterval else { return }
-                lastPointAt = Date()
-                point(drag.location, in: size, click: false)
-            }
-            .onEnded { drag in
-                point(drag.location, in: size, click: !sliding)
-                sliding = false
-            }
+    // The spot is in the picture as shown, from 0 to 1 each way. Turned a
+    // quarter clockwise, the Mac's left edge is at the top of the picture
+    // and its top edge on the right.
+    private func point(_ spot: CGPoint, click: Bool) {
+        let u = min(max(spot.x, 0), 1)
+        let v = min(max(spot.y, 0), 1)
+        controller.point(atX: v, y: 1 - u, click: click)
+    }
+}
+
+// The picture in a scroll view, which zooms with a pinch around the fingers
+// and moves with two fingers. One finger still points: a tap clicks, a slide
+// leads the cursor, at the spot under the finger whatever the zoom. Two taps
+// with two fingers show the whole screen again.
+private struct ZoomableScreen: UIViewRepresentable {
+    let image: UIImage
+    let onPoint: (CGPoint, Bool) -> Void
+
+    func makeUIView(context: Context) -> ScreenScrollView {
+        ScreenScrollView()
     }
 
-    // Turned a quarter clockwise, the Mac's left edge is at the top of the
-    // picture and its top edge on the right.
-    private func point(_ location: CGPoint, in size: CGSize, click: Bool) {
-        let u = min(max(location.x / size.width, 0), 1)
-        let v = min(max(location.y / size.height, 0), 1)
-        controller.point(atX: turned ? v : u, y: turned ? 1 - u : v, click: click)
+    func updateUIView(_ view: ScreenScrollView, context: Context) {
+        view.onPoint = onPoint
+        view.show(image)
+    }
+}
+
+private final class ScreenScrollView: UIScrollView, UIScrollViewDelegate {
+    var onPoint: ((CGPoint, Bool) -> Void)?
+    private let imageView = UIImageView()
+    private var fittedFor = CGSize.zero
+    private var lastPointAt: TimeInterval = 0
+    private let pointInterval = 1.0 / 30
+    private let maxZoom: CGFloat = 4
+
+    init() {
+        super.init(frame: .zero)
+        delegate = self
+        minimumZoomScale = 1
+        maximumZoomScale = maxZoom
+        bouncesZoom = true
+        showsHorizontalScrollIndicator = false
+        showsVerticalScrollIndicator = false
+        contentInsetAdjustmentBehavior = .never
+        panGestureRecognizer.minimumNumberOfTouches = 2
+        imageView.isUserInteractionEnabled = true
+        addSubview(imageView)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        let slide = UIPanGestureRecognizer(target: self, action: #selector(slid))
+        slide.maximumNumberOfTouches = 1
+        imageView.addGestureRecognizer(tap)
+        imageView.addGestureRecognizer(slide)
+        let whole = UITapGestureRecognizer(target: self, action: #selector(showWhole))
+        whole.numberOfTouchesRequired = 2
+        whole.numberOfTapsRequired = 2
+        addGestureRecognizer(whole)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    // Frames of the same size keep the zoom; a new size, as when the Mac
+    // changes resolution, starts over from the whole screen.
+    func show(_ image: UIImage) {
+        let resized = imageView.image?.size != image.size
+        imageView.image = image
+        if resized {
+            fittedFor = .zero
+            setNeedsLayout()
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let size = imageView.image?.size, size.width > 0, size.height > 0,
+              bounds.width > 0, bounds.height > 0, bounds.size != fittedFor else { return }
+        fittedFor = bounds.size
+        zoomScale = 1
+        let scale = min(bounds.width / size.width, bounds.height / size.height)
+        imageView.frame = CGRect(x: 0, y: 0, width: size.width * scale, height: size.height * scale)
+        contentSize = imageView.frame.size
+        centre()
+    }
+
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        imageView
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        centre()
+    }
+
+    // Keeps the picture in the middle while it is smaller than the view.
+    private func centre() {
+        let size = imageView.frame.size
+        contentInset = UIEdgeInsets(
+            top: max((bounds.height - size.height) / 2, 0),
+            left: max((bounds.width - size.width) / 2, 0),
+            bottom: 0,
+            right: 0
+        )
+    }
+
+    @objc private func tapped(_ tap: UITapGestureRecognizer) {
+        report(tap.location(in: imageView), click: true)
+    }
+
+    @objc private func slid(_ slide: UIPanGestureRecognizer) {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard slide.state == .ended || now - lastPointAt > pointInterval else { return }
+        lastPointAt = now
+        report(slide.location(in: imageView), click: false)
+    }
+
+    @objc private func showWhole() {
+        setZoomScale(1, animated: true)
+    }
+
+    // The image view's own bounds do not grow with the zoom, so the spot
+    // comes out the same at any zoom.
+    private func report(_ location: CGPoint, click: Bool) {
+        let size = imageView.bounds.size
+        guard size.width > 0, size.height > 0 else { return }
+        onPoint?(CGPoint(x: location.x / size.width, y: location.y / size.height), click)
     }
 }
 

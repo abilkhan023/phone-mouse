@@ -71,9 +71,9 @@ forward, raises one particular window or shows a tab, a swipe quits the app, Nex
 and ⌃⇥, which turn tabs in Chrome, Safari, Finder and most editors. Screen: a live picture of the Mac's main
 display, a few frames a second; a tap clicks at that spot, two taps
 double-click, and a finger sliding over the picture leads the cursor without
-clicking. The picture lies sideways so it fills the page with the phone held
-on its side, and the frames come as many pixels wide as it has; a button in
-its corner stands it upright. The Mac asks once for permission to record the screen, and once for each
+clicking. Two fingers pinch to zoom in up to four times and move the picture
+around; two taps with two fingers show the whole screen again. The picture lies sideways so it fills the page with the phone held
+on its side, and the frames come as many pixels wide as it has. The Mac asks once for permission to record the screen, and once for each
 browser whose tabs it lists. Actions: find
 the pointer, next window, lock the screen, sleep the display, screenshots,
 Mission Control, show the desktop, Apps, emoji, force quit, and sending the
