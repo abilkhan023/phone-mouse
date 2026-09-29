@@ -62,7 +62,7 @@ Scrolling on the touchpad behaves like a Mac trackpad: the page bounces at the
 edges, two fingers sideways go back and forward in Safari and Finder, and after
 the fingers lift the page glides on and slows down.
 
-**Remote.** Five pages. Media: play, pause, tracks, volume and brightness.
+**Remote.** Six pages. Media: play, pause, tracks, volume and brightness.
 Slides: big previous and next buttons, the volume buttons turn slides like a
 presenter clicker, and holding the pointer button steers the cursor with the
 phone as a laser pointer. Apps: every app open on the Mac with its windows, and
@@ -74,7 +74,14 @@ double-click, and a finger sliding over the picture leads the cursor without
 clicking. Two fingers pinch to zoom in up to four times and move the picture
 around; two taps with two fingers show the whole screen again. The picture lies sideways so it fills the page with the phone held
 on its side, and the frames come as many pixels wide as it has. The Mac asks once for permission to record the screen, and once for each
-browser whose tabs it lists. Actions: find
+browser whose tabs it lists. Translate: text selected on
+the Mac is translated on the phone as soon as the selection holds still, with
+the languages iOS translates between, on the phone itself (iOS 18 and later).
+The Mac reads the selection through the accessibility permission it already
+has, only while this page is open; for an app that keeps its selection to
+itself, Take selection copies it with ⌘C and puts the clipboard back. Both
+languages are chosen on the page, with a button to swap them; the source is
+told from the text unless one is set. Actions: find
 the pointer, next window, lock the screen, sleep the display, screenshots,
 Mission Control, show the desktop, Apps, emoji, force quit, and sending the
 clipboard.

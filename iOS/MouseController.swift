@@ -42,6 +42,13 @@ enum RemoteTab: String, CaseIterable {
     case apps
     case screen
     case actions
+    case translate
+
+    // Translation on the phone needs iOS 18.
+    static var shown: [RemoteTab] {
+        if #available(iOS 18.0, *) { return allCases }
+        return allCases.filter { $0 != .translate }
+    }
 
     var title: String {
         switch self {
@@ -50,6 +57,7 @@ enum RemoteTab: String, CaseIterable {
         case .apps: "Apps"
         case .screen: "Screen"
         case .actions: "Actions"
+        case .translate: "Translate"
         }
     }
 }
@@ -78,6 +86,10 @@ final class MouseController {
     private(set) var frontApp: FrontApp?
     private(set) var apps: [RunningApp] = []
     private(set) var screenImage: UIImage?
+    // The text selected on the Mac, while the Translate page asks for it.
+    private(set) var selectedText: String?
+    // Newest first, for this launch only.
+    private(set) var translations: [TranslatedText] = []
     var remoteTab: RemoteTab {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
@@ -120,6 +132,7 @@ final class MouseController {
     // What dictation has typed on the Mac in this session.
     @ObservationIgnored private var dictated = ""
     @ObservationIgnored private var screenTimer: Timer?
+    @ObservationIgnored private var selectionTimer: Timer?
     @ObservationIgnored private var shakes: [TimeInterval] = []
     @ObservationIgnored private var lastShakeAt: TimeInterval = 0
     @ObservationIgnored private var laserHeld = false
@@ -158,6 +171,7 @@ final class MouseController {
     private let shakeCount = 3
     private let shakeGap = 0.08
     private let latencyWeight = 0.3
+    private let translationLimit = 20
 
     init() {
         mode = PointerMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .air
@@ -165,7 +179,7 @@ final class MouseController {
         keySeq = keyStart
         keyStreamStart = keyStart &+ 1
         typed = UserDefaults.standard.string(forKey: Self.typedKey) ?? ""
-        remoteTab = RemoteTab(rawValue: UserDefaults.standard.string(forKey: Self.remoteKey) ?? "") ?? .media
+        remoteTab = RemoteTab.shown.first { $0.rawValue == UserDefaults.standard.string(forKey: Self.remoteKey) } ?? .media
         pairings = PairingStore.loadAll()
         isPairing = pairings.isEmpty
         link.pairings = pairings
@@ -210,6 +224,7 @@ final class MouseController {
         screenTimer?.invalidate()
         screenTimer = nil
         screenImage = nil
+        watchSelection(false)
         link.stop()
         setLinked(false)
         cancelCodePairing()
@@ -303,6 +318,33 @@ final class MouseController {
         let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.link.sendReliably(.screen(width: width)) }
         RunLoop.main.add(timer, forMode: .common)
         screenTimer = timer
+    }
+
+    // Like the mini screen, the request is repeated while the page is on view.
+    func watchSelection(_ on: Bool) {
+        selectionTimer?.invalidate()
+        selectionTimer = nil
+        link.sendReliably(.selectionWatch(on))
+        guard on else {
+            selectedText = nil
+            return
+        }
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.link.sendReliably(.selectionWatch(true)) }
+        RunLoop.main.add(timer, forMode: .common)
+        selectionTimer = timer
+    }
+
+    func copySelection() {
+        link.sendReliably(.copySelection)
+        haptics.impactOccurred(intensity: 0.6)
+    }
+
+    func remember(_ item: TranslatedText) {
+        translations = Array(([item] + translations).prefix(translationLimit))
+    }
+
+    func sendText(_ text: String) {
+        deliver(ClipboardItem(kind: .text, data: Data(text.utf8)))
     }
 
     func point(atX x: Double, y: Double, click: Bool) {
@@ -563,6 +605,11 @@ final class MouseController {
             return
         case let .apps(list):
             apps = list
+            return
+        case let .selection(text):
+            if selectionTimer != nil {
+                selectedText = text
+            }
             return
         case let .screenFrame(jpeg):
             if screenTimer != nil {

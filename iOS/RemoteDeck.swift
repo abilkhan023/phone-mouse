@@ -4,10 +4,16 @@ import UniformTypeIdentifiers
 struct RemoteDeck: View {
     let controller: MouseController
 
+    // Six pages fit in one row when short names take less room than long ones.
+    init(controller: MouseController) {
+        self.controller = controller
+        UISegmentedControl.appearance().apportionsSegmentWidthsByContent = true
+    }
+
     var body: some View {
         VStack(spacing: 14) {
             Picker("Remote", selection: Binding(get: { controller.remoteTab }, set: { controller.remoteTab = $0 })) {
-                ForEach(RemoteTab.allCases, id: \.self) { Text($0.title).tag($0) }
+                ForEach(RemoteTab.shown, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             switch controller.remoteTab {
@@ -16,6 +22,10 @@ struct RemoteDeck: View {
             case .apps: AppsPad(controller: controller)
             case .screen: ScreenPad(controller: controller)
             case .actions: ActionsPad(controller: controller)
+            case .translate:
+                if #available(iOS 18.0, *) {
+                    TranslatePad(controller: controller)
+                }
             }
         }
         .padding(.horizontal, 14)

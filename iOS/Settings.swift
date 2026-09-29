@@ -20,6 +20,10 @@ final class Settings {
     @ObservationIgnored var onConnectionChange: ((HostLink.Preference) -> Void)?
     // Empty means the phone's language.
     var dictationLanguage: String { didSet { save(dictationLanguage, Self.dictationKey) } }
+    // What the Translate page translates into; empty means the phone's language.
+    var translationLanguage: String { didSet { save(translationLanguage, Self.translationKey) } }
+    // What it translates from; empty means told from the text.
+    var translationSource: String { didSet { save(translationSource, Self.translationSourceKey) } }
 
     static let speedRange = 0.4...2.5
 
@@ -29,6 +33,8 @@ final class Settings {
     private static let latencyKey = "showsLatency"
     private static let leftHandedKey = "leftHanded"
     private static let dictationKey = "dictationLanguage"
+    private static let translationKey = "translationLanguage"
+    private static let translationSourceKey = "translationSource"
     private static let connectionKey = "connection"
 
     init() {
@@ -39,6 +45,8 @@ final class Settings {
         showsLatency = defaults.object(forKey: Self.latencyKey) as? Bool ?? true
         leftHanded = defaults.bool(forKey: Self.leftHandedKey)
         dictationLanguage = defaults.string(forKey: Self.dictationKey) ?? ""
+        translationLanguage = defaults.string(forKey: Self.translationKey) ?? ""
+        translationSource = defaults.string(forKey: Self.translationSourceKey) ?? ""
         connection = HostLink.Preference(rawValue: defaults.string(forKey: Self.connectionKey) ?? "") ?? .automatic
     }
 

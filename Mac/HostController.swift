@@ -47,6 +47,8 @@ final class HostController {
     @ObservationIgnored private var clipStream: ClipboardStream?
     @ObservationIgnored private var clipPending: [ClipboardStream] = []
     @ObservationIgnored private var pasteboardCount = NSPasteboard.general.changeCount
+    // While ⌘C takes the selection for the phone, the clipboard is not synced.
+    @ObservationIgnored private var copyingSelection = false
 
     private struct Offer {
         let privateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -73,6 +75,7 @@ final class HostController {
     private let switcherQueue = DispatchQueue(label: "PhoneMouse.apps")
     private let finder = PointerFinder()
     private let streamer = ScreenStreamer()
+    private let selection = SelectionReader()
     private let silenceTimeout = 0.5
     private let pendingLimit = 4
     private let offerLimit = 8
@@ -104,6 +107,7 @@ final class HostController {
             }
             stream.send(.screenFrame(jpeg), completion: done)
         }
+        selection.send = { [weak self] in self?.clipStream?.send(.selection($0)) }
         startListener()
         startClipboardListener()
         startWatchdog()
@@ -218,6 +222,7 @@ final class HostController {
             if self.clipStream === stream {
                 self.clipStream = nil
                 self.streamer.stop()
+                self.selection.stop()
             }
         }
         clipPending.append(stream)
@@ -241,6 +246,10 @@ final class HostController {
             let bounds = CGDisplayBounds(CGMainDisplayID())
             let point = CGPoint(x: bounds.minX + CGFloat(x) * bounds.width, y: bounds.minY + CGFloat(y) * bounds.height)
             driver.jump(to: point, click: click)
+        case let .selectionWatch(on):
+            selection.request(on)
+        case .copySelection:
+            copySelection()
         default:
             break
         }
@@ -269,11 +278,45 @@ final class HostController {
         pasteboardCount = board.changeCount
     }
 
+    // For apps that keep their selection from the accessibility API: ⌘C,
+    // then the clipboard as it was before.
+    private func copySelection() {
+        guard !copyingSelection, let c = KeyMap.lookup("c")?.code else { return }
+        let board = NSPasteboard.general
+        let saved = board.pasteboardItems?.map { item in
+            item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
+        } ?? []
+        let before = board.changeCount
+        copyingSelection = true
+        keyboard.apply(KeyEvent(seq: 0, kind: .stroke, keyCode: c, modifiers: .command))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self else { return }
+            var text = ""
+            if board.changeCount != before {
+                text = board.string(forType: .string) ?? ""
+                board.clearContents()
+                board.writeObjects(saved.map { pairs in
+                    let item = NSPasteboardItem()
+                    for (type, data) in pairs {
+                        item.setData(data, forType: type)
+                    }
+                    return item
+                })
+            }
+            self.pasteboardCount = board.changeCount
+            self.copyingSelection = false
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                self.clipStream?.send(.selection(String(trimmed.prefix(SelectionReader.lengthLimit))))
+            }
+        }
+    }
+
     // Whatever is copied on the Mac goes to the phone: an image if there is
     // one, otherwise text.
     private func checkPasteboard() {
         let board = NSPasteboard.general
-        guard board.changeCount != pasteboardCount else { return }
+        guard !copyingSelection, board.changeCount != pasteboardCount else { return }
         guard syncsClipboard else {
             pasteboardCount = board.changeCount
             return

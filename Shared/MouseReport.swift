@@ -177,6 +177,12 @@ enum Packet: Equatable {
     case screen(width: UInt16)
     case screenFrame(Data)
     case pointAt(x: Float, y: Float, click: Bool)
+    // The Translate page: the phone asks while it is on view, the Mac sends
+    // the text selected there. Copying takes the selection with ⌘C, for apps
+    // that do not show it to the accessibility API.
+    case selectionWatch(Bool)
+    case selection(String)
+    case copySelection
     // Pairing by code travels in the clear; see CodePairing.
     case pairHello(publicKey: Data)
     case pairReply(publicKey: Data)
@@ -209,6 +215,9 @@ enum Packet: Equatable {
     private static let screenTag: UInt8 = 21
     private static let screenFrameTag: UInt8 = 22
     private static let pointAtTag: UInt8 = 23
+    private static let selectionWatchTag: UInt8 = 24
+    private static let selectionTag: UInt8 = 25
+    private static let copySelectionTag: UInt8 = 26
     private static let field = 32
     private static let mouseSize = 23
     private static let keyHeader = 6
@@ -284,6 +293,14 @@ enum Packet: Equatable {
                 y: Float(bitPattern: data.readLittleEndian(at: 5)),
                 click: data[data.startIndex + 9] != 0
             )
+        case Self.selectionWatchTag:
+            guard data.count == 2 else { return nil }
+            self = .selectionWatch(data[data.startIndex + 1] != 0)
+        case Self.selectionTag:
+            self = .selection(String(decoding: data.dropFirst(), as: UTF8.self))
+        case Self.copySelectionTag:
+            guard data.count == 1 else { return nil }
+            self = .copySelection
         case Self.frontAppTag:
             let fields = String(decoding: data.dropFirst(), as: UTF8.self).components(separatedBy: FrontApp.separator)
             guard fields.count == 3 else { return nil }
@@ -370,6 +387,13 @@ enum Packet: Equatable {
             data.appendLittleEndian(x.bitPattern)
             data.appendLittleEndian(y.bitPattern)
             data.append(click ? 1 : 0)
+        case let .selectionWatch(on):
+            data.append(contentsOf: [Self.selectionWatchTag, on ? 1 : 0])
+        case let .selection(text):
+            data.append(Self.selectionTag)
+            data.append(contentsOf: text.utf8)
+        case .copySelection:
+            data.append(Self.copySelectionTag)
         case let .frontApp(app):
             data.append(Self.frontAppTag)
             data.append(contentsOf: [app.bundleID, app.name, String(app.title.prefix(FrontApp.titleLimit))]
