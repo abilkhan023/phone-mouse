@@ -6,6 +6,8 @@ final class HostLink {
         case wifi = "Wi-Fi"
         case direct = "Wi-Fi direct"
         case cable = "Cable"
+        // The Mac joined this iPhone's Personal Hotspot.
+        case hotspot = "Hotspot"
     }
 
     var onHostChange: ((String?) -> Void)?
@@ -76,7 +78,8 @@ final class HostLink {
     private static func isCable(_ interface: NWInterface) -> Bool {
         if interface.type == .wiredEthernet { return true }
         guard interface.type == .other else { return false }
-        return !["awdl", "llw", "utun", "ipsec", "lo", "pdp", "ap"].contains { interface.name.hasPrefix($0) }
+        // The Personal Hotspot is a bridge of type other too, and no cable.
+        return !["awdl", "llw", "utun", "ipsec", "lo", "pdp", "ap", "bridge"].contains { interface.name.hasPrefix($0) }
     }
 
     private func cableChanged(_ available: Bool) {
@@ -326,9 +329,12 @@ final class HostLink {
 
     private static func route(of connection: NWConnection) -> Route? {
         guard let path = connection.currentPath else { return nil }
-        if let interface = path.availableInterfaces.first(where: { path.usesInterfaceType($0.type) }),
-           interface.name.hasPrefix("awdl") || interface.name.hasPrefix("llw") {
+        let interface = path.availableInterfaces.first { path.usesInterfaceType($0.type) }
+        if let name = interface?.name, name.hasPrefix("awdl") || name.hasPrefix("llw") {
             return .direct
+        }
+        if interface?.name.hasPrefix("bridge") == true {
+            return .hotspot
         }
         if path.usesInterfaceType(.wifi) { return .wifi }
         if path.usesInterfaceType(.wiredEthernet) || path.usesInterfaceType(.other) { return .cable }
