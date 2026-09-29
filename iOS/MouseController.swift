@@ -551,11 +551,13 @@ final class MouseController {
             return
         case let .frontApp(app):
             let switched = app.bundleID != frontApp?.bundleID
+            // A new title, as after turning a tab, renames a window in the list.
+            let changed = app != frontApp
             frontApp = app
             if switched, mode == .remote, [.media, .slides].contains(remoteTab), let tab = Self.remoteTab(for: app) {
                 remoteTab = tab
             }
-            if switched, mode == .remote, remoteTab == .apps {
+            if changed, mode == .remote, remoteTab == .apps {
                 requestApps()
             }
             return
@@ -659,6 +661,12 @@ final class MouseController {
     func slide(forward: Bool) {
         modifiers = []
         press(forward ? KeyMap.right : KeyMap.left)
+    }
+
+    // ⌃⇥ and ⌃⇧⇥ turn tabs in browsers, Finder and most editors.
+    func switchTab(forward: Bool) {
+        modifiers = forward ? [.control] : [.control, .shift]
+        press(KeyMap.tab)
     }
 
     func movePointer(by delta: CGSize) {

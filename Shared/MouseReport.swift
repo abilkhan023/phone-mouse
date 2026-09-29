@@ -91,6 +91,17 @@ struct RunningApp: Codable, Equatable, Identifiable {
         var index: Int
         var title: String
         var minimized: Bool
+        // Browser windows list their tabs, and carry the browser's own id for
+        // the window so a tab can be picked out of it.
+        var browserID: Int?
+        var tabs: [Tab]?
+    }
+
+    // Numbered from one, as the browsers count them.
+    struct Tab: Codable, Equatable {
+        var index: Int
+        var title: String
+        var active: Bool
     }
 
     var pid: Int32
@@ -108,11 +119,13 @@ struct AppCommand: Codable, Equatable {
         case activate
         case quit
         case raiseWindow
+        case selectTab
     }
 
     var kind: Kind
     var pid: Int32
     var window: RunningApp.Window?
+    var tab: Int?
 }
 
 struct FrontApp: Equatable {

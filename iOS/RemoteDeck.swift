@@ -88,8 +88,9 @@ private struct SlidesPad: View {
     }
 }
 
-// Apps open on the Mac with their windows. A tap on an app brings it forward,
-// a tap on a window raises that window, a swipe quits the app.
+// Apps open on the Mac with their windows, and browsers with their tabs. A tap
+// on an app brings it forward, a tap on a window raises that window, a tap on
+// a tab shows it, a swipe quits the app.
 private struct AppsPad: View {
     let controller: MouseController
 
@@ -101,6 +102,14 @@ private struct AppsPad: View {
                 }
                 RemoteButton(symbol: "scope", name: "Find pointer", height: 64, caption: true) {
                     controller.gesture(.findPointer)
+                }
+            }
+            HStack(spacing: 10) {
+                RemoteButton(symbol: "chevron.backward", name: "Previous tab ⌃⇧⇥", height: 64, caption: true) {
+                    controller.switchTab(forward: false)
+                }
+                RemoteButton(symbol: "chevron.forward", name: "Next tab ⌃⇥", height: 64, caption: true) {
+                    controller.switchTab(forward: true)
                 }
             }
             List {
@@ -136,6 +145,23 @@ private struct AppsPad: View {
                             .padding(.leading, 44)
                         }
                         .listRowBackground(Palette.pressed.opacity(0.6))
+                        ForEach(window.tabs ?? [], id: \.index) { tab in
+                            Button {
+                                controller.perform(AppCommand(kind: .selectTab, pid: app.pid, window: window, tab: tab.index))
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(tab.active ? Palette.led : Palette.ink.opacity(0.25))
+                                        .frame(width: 6, height: 6)
+                                    Text(tab.title)
+                                        .font(.marking(13))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(Palette.ink.opacity(tab.active ? 0.9 : 0.55))
+                                .padding(.leading, 66)
+                            }
+                            .listRowBackground(Palette.pressed.opacity(0.4))
+                        }
                     }
                 }
             }

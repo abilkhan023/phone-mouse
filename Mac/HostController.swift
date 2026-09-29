@@ -68,6 +68,9 @@ final class HostController {
     private let driver = CursorDriver()
     private let keyboard = KeyboardDriver()
     private let switcher = AppSwitcher()
+    // Listing apps asks browsers for their tabs and waits for them, so it
+    // runs away from the cursor, in order with the commands.
+    private let switcherQueue = DispatchQueue(label: "PhoneMouse.apps")
     private let finder = PointerFinder()
     private let streamer = ScreenStreamer()
     private let silenceTimeout = 0.5
@@ -230,7 +233,7 @@ final class HostController {
         case .appsRequest:
             sendApps()
         case let .appCommand(command):
-            switcher.perform(command)
+            switcherQueue.async { [switcher] in switcher.perform(command) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.sendApps() }
         case let .screen(width):
             streamer.request(width: Int(width))
@@ -244,7 +247,10 @@ final class HostController {
     }
 
     private func sendApps() {
-        clipStream?.send(.apps(switcher.apps()))
+        switcherQueue.async { [weak self, switcher] in
+            let apps = switcher.apps()
+            DispatchQueue.main.async { self?.clipStream?.send(.apps(apps)) }
+        }
     }
 
     private func paste(_ item: ClipboardItem) {

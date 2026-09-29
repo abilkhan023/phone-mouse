@@ -6,6 +6,8 @@
 	<string>Phone Mouse</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Phone Mouse lists the tabs of your browsers on the phone and switches to the one you tap.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_phonemouse._udp</string>

@@ -65,14 +65,16 @@ the fingers lift the page glides on and slows down.
 **Remote.** Five pages. Media: play, pause, tracks, volume and brightness.
 Slides: big previous and next buttons, the volume buttons turn slides like a
 presenter clicker, and holding the pointer button steers the cursor with the
-phone as a laser pointer. Apps: every app open on the Mac with its windows; a
-tap brings an app forward or raises one particular window, a swipe quits the
-app, and Next window does what ⌘` does. Screen: a live picture of the Mac's main
+phone as a laser pointer. Apps: every app open on the Mac with its windows, and
+the tabs of Chrome, Safari and other Chrome-based browsers; a tap brings an app
+forward, raises one particular window or shows a tab, a swipe quits the app, Next window does what ⌘` does, and Previous tab and Next tab send ⌃⇧⇥
+and ⌃⇥, which turn tabs in Chrome, Safari, Finder and most editors. Screen: a live picture of the Mac's main
 display, a few frames a second; a tap clicks at that spot, two taps
 double-click, and a finger sliding over the picture leads the cursor without
 clicking. The picture lies sideways so it fills the page with the phone held
 on its side, and the frames come as many pixels wide as it has; a button in
-its corner stands it upright. The Mac asks once for permission to record the screen. Actions: find
+its corner stands it upright. The Mac asks once for permission to record the screen, and once for each
+browser whose tabs it lists. Actions: find
 the pointer, next window, lock the screen, sleep the display, screenshots,
 Mission Control, show the desktop, Apps, emoji, force quit, and sending the
 clipboard.
