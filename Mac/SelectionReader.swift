@@ -58,6 +58,11 @@ final class SelectionReader {
                     self.lastSent = text
                     self.send?(text)
                 }
+                // Once the selection is gone, selecting the same words again
+                // counts as new.
+                if text.isEmpty {
+                    self.lastSent = ""
+                }
                 self.lastSeen = text
                 DispatchQueue.main.asyncAfter(deadline: .now() + self.interval) { self.poll() }
             }

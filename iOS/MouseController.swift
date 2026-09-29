@@ -343,6 +343,11 @@ final class MouseController {
         translations = Array(([item] + translations).prefix(translationLimit))
     }
 
+    func clearTranslations() {
+        translations = []
+        haptics.impactOccurred(intensity: 0.5)
+    }
+
     func sendText(_ text: String) {
         deliver(ClipboardItem(kind: .text, data: Data(text.utf8)))
     }

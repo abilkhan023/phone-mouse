@@ -282,7 +282,22 @@ struct TranslatePad: View {
     // and puts the clipboard back.
     private var takeButton: some View {
         VStack(alignment: .leading, spacing: 4) {
-            smallButton("text.cursor", "Take selection") { controller.copySelection() }
+            HStack(spacing: 6) {
+                smallButton("text.cursor", "Take selection") { controller.copySelection() }
+                Spacer(minLength: 0)
+                if !controller.translations.isEmpty {
+                    Button { controller.clearTranslations() } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                            .frame(width: 38, height: 38)
+                            .background(Palette.shellTop, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear translations")
+                }
+            }
             Text("If a selection does not show up by itself.")
                 .font(.marking(12))
                 .foregroundStyle(Palette.ink.opacity(0.6))
@@ -335,6 +350,8 @@ struct TranslatePad: View {
     private func label(_ symbol: String, _ title: String) -> some View {
         Label(title, systemImage: symbol)
             .font(.marking(14))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .foregroundStyle(Palette.ink)
             .padding(.horizontal, 12)
             .frame(height: 38)
