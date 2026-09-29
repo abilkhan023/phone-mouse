@@ -29,25 +29,34 @@ final class AppSwitcher {
             }
     }
 
-    // A browser's windows get their tabs. The browser names a window after
-    // its current tab, as the accessibility title does, which pairs the two
-    // up; windows it knows that are out of sight come last.
+    // A browser's windows get their tabs. The accessibility title of a window
+    // is its current tab's title, which pairs the two up. A single window left
+    // on each side is the same one, its title changed between the two looks;
+    // windows the browser knows that are out of sight come last.
     private func withTabs(_ windows: [RunningApp.Window], of app: NSRunningApplication) -> [RunningApp.Window] {
         guard let bundleID = app.bundleIdentifier, let scripted = BrowserTabs.windows(of: bundleID) else { return windows }
         var remaining = scripted
-        var result = windows.map { window in
-            var window = window
-            if let found = remaining.firstIndex(where: { window.title == $0.name || window.title.hasPrefix($0.name + " - ") }) {
-                let browser = remaining.remove(at: found)
-                window.browserID = browser.id
-                window.tabs = browser.list(limit: tabLimit)
+        var result = windows
+        var unmatched: [Int] = []
+        for position in result.indices {
+            if let found = remaining.firstIndex(where: { $0.matches(result[position].title) }) {
+                attach(remaining.remove(at: found), to: &result[position])
+            } else {
+                unmatched.append(position)
             }
-            return window
+        }
+        if unmatched.count == 1, remaining.count == 1 {
+            attach(remaining.removeFirst(), to: &result[unmatched[0]])
         }
         for browser in remaining.prefix(max(windowLimit - result.count, 0)) where !browser.name.isEmpty {
             result.append(RunningApp.Window(index: -1, title: browser.name, minimized: false, browserID: browser.id, tabs: browser.list(limit: tabLimit)))
         }
         return result
+    }
+
+    private func attach(_ browser: BrowserTabs.Window, to window: inout RunningApp.Window) {
+        window.browserID = browser.id
+        window.tabs = browser.list(limit: tabLimit)
     }
 
     func perform(_ command: AppCommand) {
@@ -62,8 +71,14 @@ final class AppSwitcher {
             let list = windows(of: command.pid)
             let byIndex = list.indices.contains(wanted.index) && string(list[wanted.index], kAXTitleAttribute) == wanted.title
             let match = byIndex ? list[wanted.index] : list.first { string($0, kAXTitleAttribute) == wanted.title }
-            guard let match else { return }
-            raise(match, of: app)
+            if let match {
+                raise(match, of: app)
+            } else if let bundleID = app.bundleIdentifier, let id = wanted.browserID,
+                      let current = wanted.tabs?.first(where: \.active) {
+                // A browser window out of accessibility's sight is brought
+                // forward by the browser itself, on the tab it shows.
+                BrowserTabs.select(tab: current.index, window: id, of: bundleID)
+            }
         case .selectTab:
             guard let bundleID = app.bundleIdentifier, let id = command.window?.browserID, let tab = command.tab else { return }
             BrowserTabs.select(tab: tab, window: id, of: bundleID)
@@ -136,6 +151,15 @@ enum BrowserTabs {
         let name: String
         let active: Int
         let tabs: [String]
+
+        // The browser shortens a long name with an ellipsis in the middle,
+        // where the accessibility title and the tab keep all of it.
+        func matches(_ title: String) -> Bool {
+            if title == name || title.hasPrefix(name + " - ") { return true }
+            if tabs.indices.contains(active - 1), title == tabs[active - 1] || title.hasPrefix(tabs[active - 1] + " - ") { return true }
+            let parts = name.components(separatedBy: "…")
+            return parts.count == 2 && !parts[0].isEmpty && title.hasPrefix(parts[0]) && title.hasSuffix(parts[1])
+        }
 
         func list(limit: Int) -> [RunningApp.Tab] {
             tabs.prefix(limit).enumerated().map { offset, title in
