@@ -112,6 +112,8 @@ final class MouseController {
     private(set) var lineResets = 0
     var isTyping = false
     var isPairing = false
+    // The first launch shows how it works before pairing.
+    private(set) var showsIntro = !UserDefaults.standard.bool(forKey: MouseController.introKey)
 
     @ObservationIgnored private var fallbackTimer: Timer?
     @ObservationIgnored private var seq: UInt32 = 0
@@ -149,6 +151,7 @@ final class MouseController {
     @ObservationIgnored private var noticeTimer: Timer?
 
     private static let typedKey = "typedText"
+    private static let introKey = "introSeen"
     private static let remoteKey = "remoteTab"
 
     private let motion = CMMotionManager()
@@ -190,7 +193,7 @@ final class MouseController {
         typed = UserDefaults.standard.string(forKey: Self.typedKey) ?? ""
         remoteTab = RemoteTab.shown.first { $0.rawValue == UserDefaults.standard.string(forKey: Self.remoteKey) } ?? .media
         pairings = PairingStore.loadAll()
-        isPairing = pairings.isEmpty
+        isPairing = pairings.isEmpty && !showsIntro
         link.pairings = pairings
         link.preference = settings.connection
         settings.onConnectionChange = { [weak self] in self?.link.preference = $0 }
@@ -481,6 +484,20 @@ final class MouseController {
     }
 
     // The pairing screen covers the touchpad, so its keyboard goes away.
+    func showIntro() {
+        isTyping = false
+        showsIntro = true
+    }
+
+    // Pairing follows when no Mac is paired yet.
+    func finishIntro() {
+        showsIntro = false
+        UserDefaults.standard.set(true, forKey: Self.introKey)
+        if pairings.isEmpty {
+            isPairing = true
+        }
+    }
+
     func showPairing() {
         isTyping = false
         dictation.stop()

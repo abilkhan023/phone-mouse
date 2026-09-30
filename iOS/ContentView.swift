@@ -66,6 +66,10 @@ struct ContentView: View {
                 if controller.isPairing {
                     PairingSheet(controller: controller)
                 }
+                if controller.showsIntro {
+                    IntroView(controller: controller)
+                        .transition(.opacity)
+                }
             }
             .ignoresSafeArea()
             .animation(.snappy, value: controller.notice)
@@ -158,6 +162,7 @@ struct StatusBar: View {
                     Button("Forget \(name)", systemImage: "trash", role: .destructive) { controller.forget(name) }
                 }
                 Divider()
+                Button("How it works", systemImage: "questionmark.circle") { controller.showIntro() }
                 Button("Statistics", systemImage: "chart.bar", action: onStats)
                 Button("Settings", systemImage: "gearshape", action: onSettings)
             } label: {
