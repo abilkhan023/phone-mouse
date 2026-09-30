@@ -100,6 +100,7 @@ final class MouseController {
         didSet { UserDefaults.standard.set(remoteTab.rawValue, forKey: Self.remoteKey) }
     }
     let settings = Settings()
+    let stats = Stats()
     let dictation = Dictation()
     // Latched by a tap, for the next key only.
     private(set) var modifiers: KeyModifiers = []
@@ -172,6 +173,7 @@ final class MouseController {
     private let resendBatch = 32
     private let tapLimit = 0.3
     private let pingTicks = 100
+    private let statsTicks = 500
     private let shakeForce = 2.2
     private let shakeWindow = 0.8
     private let shakeCount = 3
@@ -226,6 +228,7 @@ final class MouseController {
         guard isRunning else { return }
         isRunning = false
         motion.stopDeviceMotionUpdates()
+        stats.save()
         fallbackTimer?.invalidate()
         fallbackTimer = nil
         buttons = []
@@ -351,6 +354,9 @@ final class MouseController {
     }
 
     func remember(_ item: TranslatedText) {
+        if item.translation != nil {
+            stats.record { $0.translations += 1 }
+        }
         translations = Array(([item] + translations).prefix(translationLimit))
     }
 
@@ -419,6 +425,7 @@ final class MouseController {
         case .notLocked:
             show("The Mac is not locked")
         case .unlocked:
+            stats.record { $0.unlocks += 1 }
             show("Unlocked")
             haptics.impactOccurred(intensity: 1)
         case .stillLocked:
@@ -439,6 +446,7 @@ final class MouseController {
     func point(atX x: Double, y: Double, click: Bool) {
         link.sendReliably(.pointAt(x: Float(x), y: Float(y), click: click))
         if click {
+            stats.record { $0.clicks += 1 }
             haptics.impactOccurred(intensity: 0.8)
         }
     }
@@ -525,6 +533,7 @@ final class MouseController {
     func setButton(_ button: MouseButtons, pressed: Bool) {
         if pressed {
             buttons.insert(button)
+            stats.record { $0.clicks += 1 }
             if mode == .air {
                 let undo = air.rewind()
                 pendingMove.width += undo.x
@@ -569,6 +578,7 @@ final class MouseController {
         }
         if common < new.count {
             let added = String(new[common...])
+            stats.record { $0.characters += added.count }
             typed = String((typed + added).suffix(typedLimit))
             queue(KeyEvent(seq: 0, kind: .text, text: added))
         }
@@ -637,7 +647,9 @@ final class MouseController {
         }
         modifiers = []
         switch kind {
-        case .text: typed = String((typed + text).suffix(typedLimit))
+        case .text:
+            typed = String((typed + text).suffix(typedLimit))
+            stats.record { $0.characters += text.count }
         case .backspace: typed = String(typed.dropLast())
         case .enter: typed = String((typed + "\n").suffix(typedLimit))
         case .stroke, .hold, .release: break
@@ -866,6 +878,19 @@ final class MouseController {
         report.isScrolling = mode == .touchpad && touchScrolling
         pendingScroll = .zero
         link.send(.mouse(report))
+        if isLinked {
+            let moved = Double(hypot(report.dx, report.dy))
+            let scrolled = Double(hypot(report.scrollX, report.scrollY))
+            if moved > 0 || scrolled > 0 {
+                stats.record {
+                    $0.pointer += moved
+                    $0.scroll += scrolled
+                }
+            }
+        }
+        if ticks % statsTicks == 0 {
+            stats.save()
+        }
     }
 
     private func pointerDelta(for motion: CMDeviceMotion?) -> CGPoint {

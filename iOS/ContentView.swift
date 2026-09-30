@@ -10,6 +10,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var keyboardTop = CGFloat.infinity
     @State private var showsSettings = false
+    @State private var showsStats = false
 
     var body: some View {
         GeometryReader { safeArea in
@@ -52,7 +53,7 @@ struct ContentView: View {
                             .padding(.bottom, insets.bottom)
                     }
                 }
-                StatusBar(controller: controller) { showsSettings = true }
+                StatusBar(controller: controller, onSettings: { showsSettings = true }, onStats: { showsStats = true })
                     .padding(.top, insets.top)
                 NowOnMac(app: controller.isLinked ? controller.frontApp : nil)
                     .padding(.top, insets.top + 50)
@@ -74,6 +75,9 @@ struct ContentView: View {
         .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $showsSettings) {
             SettingsView(settings: controller.settings)
+        }
+        .sheet(isPresented: $showsStats) {
+            StatsView(stats: controller.stats, scheme: controller.settings.skin.scheme)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
             guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
@@ -128,6 +132,7 @@ struct Shell: View {
 struct StatusBar: View {
     let controller: MouseController
     let onSettings: () -> Void
+    let onStats: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -153,6 +158,7 @@ struct StatusBar: View {
                     Button("Forget \(name)", systemImage: "trash", role: .destructive) { controller.forget(name) }
                 }
                 Divider()
+                Button("Statistics", systemImage: "chart.bar", action: onStats)
                 Button("Settings", systemImage: "gearshape", action: onSettings)
             } label: {
                 HStack(spacing: 8) {
