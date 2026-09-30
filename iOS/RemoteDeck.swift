@@ -557,6 +557,39 @@ struct ClipboardButton: View {
     }
 }
 
+// The four looks side by side, each a small mouse in its colors.
+struct SkinPicker: View {
+    @Binding var selection: Skin
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(Skin.allCases) { skin in
+                Button { selection = skin } label: {
+                    VStack(spacing: 6) {
+                        ZStack(alignment: .top) {
+                            Capsule()
+                                .fill(LinearGradient(colors: [skin.previewTop, skin.previewBottom], startPoint: .top, endPoint: .bottom))
+                            Circle()
+                                .fill(skin.previewLED)
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 8)
+                        }
+                        .frame(width: 40, height: 60)
+                        .overlay(Capsule().stroke(selection == skin ? Color.accentColor : .secondary.opacity(0.3), lineWidth: selection == skin ? 3 : 1))
+                        Text(skin.title)
+                            .font(.caption)
+                            .foregroundStyle(selection == skin ? .primary : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == skin ? .isSelected : [])
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct SettingsView: View {
     @Bindable var settings: Settings
     @Environment(\.dismiss) private var dismiss
@@ -564,6 +597,9 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Skin") {
+                    SkinPicker(selection: $settings.skin)
+                }
                 Section("Speed") {
                     slider("Pointer", value: $settings.pointerSpeed)
                     slider("Scrolling", value: $settings.scrollSpeed)
@@ -604,7 +640,7 @@ struct SettingsView: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(settings.skin.scheme)
     }
 
     private func slider(_ title: String, value: Binding<Double>) -> some View {

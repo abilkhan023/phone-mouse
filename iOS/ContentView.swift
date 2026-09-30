@@ -69,6 +69,8 @@ struct ContentView: View {
             .ignoresSafeArea()
             .animation(.snappy, value: controller.notice)
         }
+        // Drawn anew in the colors of another skin.
+        .id(controller.settings.skin)
         .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $showsSettings) {
             SettingsView(settings: controller.settings)
@@ -83,7 +85,7 @@ struct ContentView: View {
                 keyboardTop = frame.minY
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(controller.settings.skin.scheme)
         .persistentSystemOverlays(.hidden)
         .defersSystemGestures(on: .vertical)
         .statusBarHidden()
