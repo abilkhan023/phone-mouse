@@ -1,0 +1,156 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Allow cursor control…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешить управление курсором…"
+          }
+        }
+      }
+    },
+    "New code": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый код"
+          }
+        }
+      }
+    },
+    "No camera handy? Choose Pair by code on the phone and type": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет камеры под рукой? Выберите на телефоне вход по коду и введите"
+          }
+        }
+      }
+    },
+    "Only a phone paired with this Mac can control it. Traffic between them is encrypted.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управлять Маком может только телефон, подключённый к нему. Связь между ними зашифрована."
+          }
+        }
+      }
+    },
+    "Open at Login": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывать при входе"
+          }
+        }
+      }
+    },
+    "Pair iPhone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить iPhone"
+          }
+        }
+      }
+    },
+    "Pair iPhone…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить iPhone…"
+          }
+        }
+      }
+    },
+    "Phone connected": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Телефон подключён"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти"
+          }
+        }
+      }
+    },
+    "Scan with Phone Mouse on your iPhone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсканируйте в Phone Mouse на iPhone"
+          }
+        }
+      }
+    },
+    "Screenshot %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок экрана %@"
+          }
+        }
+      }
+    },
+    "Share Clipboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общий буфер обмена"
+          }
+        }
+      }
+    },
+    "Too many wrong codes. Close this window and open it again for a new one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком много неверных кодов. Закройте окно и откройте снова, чтобы получить новый."
+          }
+        }
+      }
+    },
+    "Unpairs the current phone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключает текущий телефон"
+          }
+        }
+      }
+    },
+    "Waiting for phone…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждём телефон…"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

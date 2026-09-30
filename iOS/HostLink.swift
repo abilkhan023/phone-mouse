@@ -8,6 +8,15 @@ final class HostLink {
         case cable = "Cable"
         // The Mac joined this iPhone's Personal Hotspot.
         case hotspot = "Hotspot"
+
+        var title: String {
+            switch self {
+            case .wifi: String(localized: "Wi-Fi")
+            case .direct: String(localized: "Wi-Fi direct")
+            case .cable: String(localized: "Cable")
+            case .hotspot: String(localized: "Hotspot")
+            }
+        }
     }
 
     var onHostChange: ((String?) -> Void)?

@@ -1,0 +1,56 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSMicrophoneUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse слушает, пока вы диктуете, чтобы напечатать сказанное на Маке."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse превращает речь в текст и печатает его на Маке."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse спрашивает Face ID, прежде чем отправить пароль Мака для разблокировки."
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse использует камеру, чтобы отсканировать код сопряжения на Маке."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse использует локальную сеть, чтобы найти Мак и двигать его курсор."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

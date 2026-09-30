@@ -85,7 +85,7 @@ struct TranslatePad: View {
                     target: target
                 ))
             } catch {
-                controller.remember(TranslatedText(original: text, source: nil, target: target, note: "Could not translate. \(error.localizedDescription)"))
+                controller.remember(TranslatedText(original: text, source: nil, target: target, note: String(localized: "Could not translate. \(error.localizedDescription)")))
             }
         }
     }
@@ -102,12 +102,12 @@ struct TranslatePad: View {
             : Locale.Language(identifier: chosen)
         let sourceCode = detected?.languageCode?.identifier
         if sourceCode == targetCode {
-            controller.remember(TranslatedText(original: text, source: sourceCode, target: targetCode, note: "Already in \(name(of: targetCode))."))
+            controller.remember(TranslatedText(original: text, source: sourceCode, target: targetCode, note: String(localized: "Already in \(name(of: targetCode)).")))
             return
         }
         Task {
             if let detected, await LanguageAvailability().status(from: detected, to: target) == .unsupported {
-                controller.remember(TranslatedText(original: text, source: sourceCode, target: targetCode, note: "iOS cannot translate \(name(of: sourceCode ?? "")) yet."))
+                controller.remember(TranslatedText(original: text, source: sourceCode, target: targetCode, note: String(localized: "iOS cannot translate \(name(of: sourceCode ?? "")) yet.")))
                 return
             }
             pending = text
@@ -125,7 +125,7 @@ struct TranslatePad: View {
         let source = settings.translationSource
         return HStack(spacing: 6) {
             VStack(spacing: 6) {
-                sideButton(.source, source.isEmpty ? "Auto" : name(of: source))
+                sideButton(.source, source.isEmpty ? String(localized: "Auto") : name(of: source))
                 sideButton(.target, "→ \(name(of: settings.translationTarget.languageCode?.identifier ?? ""))")
             }
             Button(action: swapLanguages) {
@@ -158,7 +158,7 @@ struct TranslatePad: View {
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.groove, lineWidth: 2))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(side == .source ? "Language to translate from" : "Language to translate into")
+        .accessibilityLabel(side == .source ? String(localized: "Language to translate from") : String(localized: "Language to translate into"))
     }
 
     // With the source told from the text, the language of the last
@@ -177,7 +177,7 @@ struct TranslatePad: View {
     private func languageList(_ side: Side) -> some View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)], spacing: 8) {
-                languageCell(side, id: "", name: side == .source ? "Auto" : "Same as the phone")
+                languageCell(side, id: "", name: side == .source ? String(localized: "Auto") : String(localized: "Same as the phone"))
                 ForEach(languages, id: \.id) { languageCell(side, id: $0.id, name: $0.name) }
             }
             .padding(8)
@@ -253,9 +253,9 @@ struct TranslatePad: View {
             }
             HStack(spacing: 10) {
                 if let translation = item.translation {
-                    smallButton("doc.on.clipboard", "Copy to Mac") { controller.sendText(translation) }
+                    smallButton("doc.on.clipboard", String(localized: "Copy to Mac")) { controller.sendText(translation) }
                 } else if item.source != item.target, let url = google(item) {
-                    Link(destination: url) { label("globe", "Google Translate") }
+                    Link(destination: url) { label("globe", String(localized: "Google Translate")) }
                 }
                 Spacer(minLength: 0)
             }
@@ -283,7 +283,7 @@ struct TranslatePad: View {
     private var takeButton: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                smallButton("text.cursor", "Take selection") { controller.copySelection() }
+                smallButton("text.cursor", String(localized: "Take selection")) { controller.copySelection() }
                 Spacer(minLength: 0)
                 if !controller.translations.isEmpty {
                     Button { controller.clearTranslations() } label: {

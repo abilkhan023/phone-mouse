@@ -151,7 +151,7 @@ struct StatusBar: View {
                                 if name == controller.hostName {
                                     Label(name, systemImage: "checkmark")
                                 } else {
-                                    Text(controller.nearbyHosts.contains(name) ? name : "\(name) (away)")
+                                    Text(controller.nearbyHosts.contains(name) ? name : String(localized: "\(name) (away)"))
                                 }
                             }
                         }
@@ -170,9 +170,11 @@ struct StatusBar: View {
                     Image(systemName: "laptopcomputer")
                         .font(.system(size: 15, weight: .medium))
                     VStack(alignment: .leading, spacing: 1) {
+                        // A long Mac name shrinks rather than being cut off.
                         Text(status)
                             .font(.marking(15))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                         if let detail {
                             Text(detail)
                                 .font(.marking(11))
@@ -198,16 +200,19 @@ struct StatusBar: View {
 extension StatusBar {
     private var status: String {
         switch (controller.hostName, controller.isLinked) {
-        case let (name?, true): name
-        case let (name?, false): "Connecting to \(name)…"
-        case (nil, _): controller.pairings.isEmpty ? "Not paired" : "Looking for your Mac…"
+        case let (name?, _): name
+        case (nil, _): controller.pairings.isEmpty ? String(localized: "Not paired") : String(localized: "Looking for your Mac…")
         }
     }
 
-    // How the phone reaches the Mac and how long a report takes.
+    // Connecting, or how the phone reaches the Mac and how long a report
+    // takes; under the name, so the name keeps the room.
     private var detail: String? {
+        if controller.hostName != nil, !controller.isLinked {
+            return String(localized: "Connecting…")
+        }
         guard controller.isLinked, controller.settings.showsLatency else { return nil }
-        let parts = [controller.route?.rawValue, controller.latency.map { "\(Int($0.rounded())) ms" }]
+        let parts = [controller.route?.title, controller.latency.map { String(localized: "\(Int($0.rounded())) ms") }]
         let text = parts.compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return text.isEmpty ? nil : text
     }
@@ -258,11 +263,11 @@ struct MicButton: View {
                 .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(listening ? "Stop dictation" : "Dictate")
+        .accessibilityLabel(listening ? String(localized: "Stop dictation") : String(localized: "Dictate"))
         .onChange(of: controller.dictation.problem) { _, problem in
             switch problem {
-            case .denied?: controller.announce("Allow the microphone and speech recognition in Settings")
-            case .unavailable?: controller.announce("Dictation is not available right now")
+            case .denied?: controller.announce(String(localized: "Allow the microphone and speech recognition in Settings"))
+            case .unavailable?: controller.announce(String(localized: "Dictation is not available right now"))
             case nil: break
             }
         }
@@ -274,7 +279,7 @@ struct DictationPanel: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            Text(text.isEmpty ? "Listening… speak, and it is typed on the Mac" : text)
+            Text(text.isEmpty ? String(localized: "Listening… speak, and it is typed on the Mac") : text)
                 .font(.marking(15))
                 .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.6 : 1))
                 .lineLimit(2)
@@ -477,25 +482,25 @@ struct MacKeyStrip: View {
 
     private let height: CGFloat = 38
     private let extras: [(label: String, code: UInt8, name: String)] = [
-        ("esc", KeyMap.escape, "Escape"),
-        ("⇥", KeyMap.tab, "Tab"),
-        ("⌦", KeyMap.forwardDelete, "Forward delete"),
-        ("home", KeyMap.home, "Home"),
-        ("end", KeyMap.end, "End"),
-        ("pg↑", KeyMap.pageUp, "Page up"),
-        ("pg↓", KeyMap.pageDown, "Page down"),
+        ("esc", KeyMap.escape, String(localized: "Escape")),
+        ("⇥", KeyMap.tab, String(localized: "Tab")),
+        ("⌦", KeyMap.forwardDelete, String(localized: "Forward delete")),
+        ("home", KeyMap.home, String(localized: "Home")),
+        ("end", KeyMap.end, String(localized: "End")),
+        ("pg↑", KeyMap.pageUp, String(localized: "Page up")),
+        ("pg↓", KeyMap.pageDown, String(localized: "Page down")),
     ]
     private let modifierKeys: [(label: String, modifier: KeyModifiers, name: String)] = [
-        ("⌃", .control, "Control"),
-        ("⌥", .option, "Option"),
-        ("⌘", .command, "Command"),
-        ("⇧", .shift, "Shift"),
+        ("⌃", .control, String(localized: "Control")),
+        ("⌥", .option, String(localized: "Option")),
+        ("⌘", .command, String(localized: "Command")),
+        ("⇧", .shift, String(localized: "Shift")),
     ]
     private let arrows: [(label: String, code: UInt8, name: String)] = [
-        ("←", KeyMap.left, "Left arrow"),
-        ("↑", KeyMap.up, "Up arrow"),
-        ("↓", KeyMap.down, "Down arrow"),
-        ("→", KeyMap.right, "Right arrow"),
+        ("←", KeyMap.left, String(localized: "Left arrow")),
+        ("↑", KeyMap.up, String(localized: "Up arrow")),
+        ("↓", KeyMap.down, String(localized: "Down arrow")),
+        ("→", KeyMap.right, String(localized: "Right arrow")),
     ]
 
     var body: some View {
@@ -566,7 +571,7 @@ struct TypedLine: View {
                 ScrollViewReader { reader in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 2) {
-                            Text(text.isEmpty ? "Start typing" : text.replacingOccurrences(of: "\n", with: " ⏎ "))
+                            Text(text.isEmpty ? String(localized: "Start typing") : text.replacingOccurrences(of: "\n", with: " ⏎ "))
                                 .font(.marking(17))
                                 .foregroundStyle(Palette.ink.opacity(text.isEmpty ? 0.5 : 1))
                                 .fixedSize()
@@ -622,8 +627,8 @@ struct ButtonDeck: View {
                 .fill(rightPressed ? Palette.pressed : .clear)
             DeckSeams()
                 .stroke(Palette.groove, lineWidth: 2)
-            pad(.left, pressed: $leftPressed, label: "Left button")
-            pad(.right, pressed: $rightPressed, label: "Right button")
+            pad(.left, pressed: $leftPressed, label: String(localized: "Left button"))
+            pad(.right, pressed: $rightPressed, label: String(localized: "Right button"))
             Wheel { controller.scroll(by: CGSize(width: 0, height: $0)) }
                 .frame(width: 60, height: 210)
                 .padding(.top, 84)
@@ -666,7 +671,7 @@ struct TouchpadDeck: View {
             .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
             .accessibilityLabel("Touchpad")
             HStack(spacing: 10) {
-                key(isPressed: leftPressed, pressed: $leftPressed, label: "Left button")
+                key(isPressed: leftPressed, pressed: $leftPressed, label: String(localized: "Left button"))
                 Button {
                     withAnimation(.keyboard) {
                         controller.isTyping.toggle()
@@ -681,9 +686,9 @@ struct TouchpadDeck: View {
                         .overlay(RoundedRectangle(cornerRadius: corner).stroke(Palette.groove, lineWidth: 2))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isTyping ? "Hide keyboard" : "Show keyboard")
+                .accessibilityLabel(isTyping ? String(localized: "Hide keyboard") : String(localized: "Show keyboard"))
                 MicButton(controller: controller, corner: corner)
-                key(isPressed: rightPressed, pressed: $rightPressed, label: "Right button")
+                key(isPressed: rightPressed, pressed: $rightPressed, label: String(localized: "Right button"))
             }
             .frame(height: isTyping ? 56 : 88)
         }

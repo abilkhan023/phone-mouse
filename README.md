@@ -32,6 +32,12 @@ The connection works over a USB cable, over a shared Wi-Fi network, or directly
 between the two devices. Over a cable the measured delay from sensor sample to
 the Mac is about 5 ms.
 
+Both apps come in English and Russian and follow the system language; the
+phone app's language can also be chosen in its settings. The first launch
+shows how to connect the Mac, what to allow there and the modes, and the
+same pages open again from the menu under How it works. The phone keeps
+statistics of its own use, and the mouse comes in four skins.
+
 ## Modes
 
 | Mode | How to use it | What moves the cursor |

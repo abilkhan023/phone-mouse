@@ -1,0 +1,26 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAppleEventsUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse показывает на телефоне вкладки браузеров и переключает на выбранную."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Mouse использует локальную сеть, чтобы телефон нашёл этот Мак."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

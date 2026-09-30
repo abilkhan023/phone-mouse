@@ -165,7 +165,7 @@ final class KeyboardDriver {
             .map { ($0 as NSString).expandingTildeInPath }
             ?? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first?.path
             ?? NSHomeDirectory()
-        return (folder as NSString).appendingPathComponent("Screenshot \(formatter.string(from: Date())).png")
+        return (folder as NSString).appendingPathComponent(String(localized: "Screenshot \(formatter.string(from: Date()))") + ".png")
     }
 
     private func run(_ tool: String, _ arguments: [String]) {

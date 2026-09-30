@@ -22,6 +22,21 @@ final class Settings {
     var dictationLanguage: String { didSet { save(dictationLanguage, Self.dictationKey) } }
     // What the Translate page translates into; empty means the phone's language.
     var translationLanguage: String { didSet { save(translationLanguage, Self.translationKey) } }
+    // The app's own language: empty follows the phone. iOS reads it at launch,
+    // so a change shows after the app is opened again.
+    var language: String {
+        didSet {
+            if language.isEmpty {
+                UserDefaults.standard.removeObject(forKey: Self.languagesKey)
+            } else {
+                UserDefaults.standard.set([language], forKey: Self.languagesKey)
+            }
+        }
+    }
+    // The language the app is shown in right now.
+    let launchLanguage = Bundle.main.preferredLocalizations.first ?? "en"
+    static let languages = [("en", "English"), ("ru", "Русский")]
+
     var skin: Skin {
         didSet {
             save(skin.rawValue, Self.skinKey)
@@ -42,6 +57,7 @@ final class Settings {
     private static let translationKey = "translationLanguage"
     private static let translationSourceKey = "translationSource"
     private static let skinKey = "skin"
+    private static let languagesKey = "AppleLanguages"
     private static let connectionKey = "connection"
 
     init() {
@@ -54,6 +70,9 @@ final class Settings {
         dictationLanguage = defaults.string(forKey: Self.dictationKey) ?? ""
         translationLanguage = defaults.string(forKey: Self.translationKey) ?? ""
         translationSource = defaults.string(forKey: Self.translationSourceKey) ?? ""
+        // Only a list set by the app itself counts; otherwise it follows the phone.
+        let own = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")?[Self.languagesKey] as? [String]
+        language = own?.first ?? ""
         let skin = Skin(rawValue: defaults.string(forKey: Self.skinKey) ?? "") ?? .graphite
         self.skin = skin
         Palette.skin = skin

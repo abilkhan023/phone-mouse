@@ -9,6 +9,10 @@ struct RemoteDeck: View {
     init(controller: MouseController) {
         self.controller = controller
         UISegmentedControl.appearance().apportionsSegmentWidthsByContent = true
+        // Longer names in other languages shrink instead of being cut off.
+        let label = UILabel.appearance(whenContainedInInstancesOf: [UISegmentedControl.self])
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.7
     }
 
     var body: some View {
@@ -41,7 +45,7 @@ struct RemoteDeck: View {
             }
             Button("Cancel", role: .cancel) { macPassword = "" }
         } message: {
-            Text("Kept on this iPhone and opened with Face ID. Sent to \(controller.hostName ?? "the Mac") only to unlock it.")
+            Text("Kept on this iPhone and opened with Face ID. Sent to \(controller.hostName ?? String(localized: "the Mac")) only to unlock it.")
         }
     }
 }
@@ -52,18 +56,18 @@ private struct MediaPad: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                pad("backward.fill", "Previous track") { controller.media(6) }
-                pad("playpause.fill", "Play or pause", tall: true) { controller.media(7) }
-                pad("forward.fill", "Next track") { controller.media(8) }
+                pad("backward.fill", String(localized: "Previous track")) { controller.media(6) }
+                pad("playpause.fill", String(localized: "Play or pause"), tall: true) { controller.media(7) }
+                pad("forward.fill", String(localized: "Next track")) { controller.media(8) }
             }
             HStack(spacing: 12) {
-                pad("speaker.wave.1.fill", "Volume down", repeats: true) { controller.media(10) }
-                pad("speaker.slash.fill", "Mute") { controller.media(9) }
-                pad("speaker.wave.3.fill", "Volume up", repeats: true) { controller.media(11) }
+                pad("speaker.wave.1.fill", String(localized: "Volume down"), repeats: true) { controller.media(10) }
+                pad("speaker.slash.fill", String(localized: "Mute")) { controller.media(9) }
+                pad("speaker.wave.3.fill", String(localized: "Volume up"), repeats: true) { controller.media(11) }
             }
             HStack(spacing: 12) {
-                pad("sun.min.fill", "Brightness down", repeats: true) { controller.media(0) }
-                pad("sun.max.fill", "Brightness up", repeats: true) { controller.media(1) }
+                pad("sun.min.fill", String(localized: "Brightness down"), repeats: true) { controller.media(0) }
+                pad("sun.max.fill", String(localized: "Brightness up"), repeats: true) { controller.media(1) }
             }
             Text("The volume buttons set the Mac's volume.")
                 .font(.marking(14))
@@ -84,14 +88,14 @@ private struct SlidesPad: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                RemoteButton(symbol: "chevron.left", name: "Previous slide", height: 150, caption: true) { controller.slide(forward: false) }
-                RemoteButton(symbol: "chevron.right", name: "Next slide", height: 150, caption: true) { controller.slide(forward: true) }
+                RemoteButton(symbol: "chevron.left", name: String(localized: "Previous slide"), height: 150, caption: true) { controller.slide(forward: false) }
+                RemoteButton(symbol: "chevron.right", name: String(localized: "Next slide"), height: 150, caption: true) { controller.slide(forward: true) }
             }
             HoldKey(onDown: { set(true) }, onUp: { set(false) }) {
                 VStack(spacing: 8) {
                     Image(systemName: "light.max")
                         .font(.system(size: 34, weight: .medium))
-                    Text(laser ? "Point at the screen" : "Hold to point")
+                    Text(laser ? String(localized: "Point at the screen") : String(localized: "Hold to point"))
                         .font(.marking(17))
                 }
                 .foregroundStyle(laser ? Palette.shellBottom : Palette.ink)
@@ -121,18 +125,18 @@ private struct AppsPad: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                RemoteButton(symbol: "macwindow.on.rectangle", name: "Next window ⌘`", height: 64, caption: true) {
+                RemoteButton(symbol: "macwindow.on.rectangle", name: String(localized: "Next window ⌘`"), height: 64, caption: true) {
                     controller.gesture(.nextWindow)
                 }
-                RemoteButton(symbol: "scope", name: "Find pointer", height: 64, caption: true) {
+                RemoteButton(symbol: "scope", name: String(localized: "Find pointer"), height: 64, caption: true) {
                     controller.gesture(.findPointer)
                 }
             }
             HStack(spacing: 10) {
-                RemoteButton(symbol: "chevron.backward", name: "Previous tab ⌃⇧⇥", height: 64, caption: true) {
+                RemoteButton(symbol: "chevron.backward", name: String(localized: "Previous tab ⌃⇧⇥"), height: 64, caption: true) {
                     controller.switchTab(forward: false)
                 }
-                RemoteButton(symbol: "chevron.forward", name: "Next tab ⌃⇥", height: 64, caption: true) {
+                RemoteButton(symbol: "chevron.forward", name: String(localized: "Next tab ⌃⇥"), height: 64, caption: true) {
                     controller.switchTab(forward: true)
                 }
             }
@@ -405,18 +409,18 @@ private struct ActionsPad: View {
     let controller: MouseController
 
     private let actions: [(symbol: String, name: String, detail: String, kind: GestureEvent.Kind)] = [
-        ("scope", "Find the pointer", "Rings the cursor on the Mac. Shaking the phone does it too.", .findPointer),
-        ("macwindow.on.rectangle", "Next window", "Brings the front app's next window forward, like ⌘`.", .nextWindow),
-        ("lock.fill", "Lock screen", "Locks the Mac; unlock it with your password.", .lockScreen),
-        ("moon.fill", "Display sleep", "Turns the screen off. Move the pointer to wake it.", .displaySleep),
-        ("camera.viewfinder", "Screenshot", "Saves the whole screen as a picture on the Desktop.", .screenshot),
-        ("crop", "Screenshot of an area", "Then drag on the Mac over the part to capture.", .screenshotArea),
-        ("record.circle", "Screenshot tools", "Opens the panel for screen recording and options.", .screenshotTools),
-        ("rectangle.3.group", "Mission Control", "Shows every open window and desktop at once.", .swipeUp),
-        ("menubar.dock.rectangle", "Show desktop", "Moves the windows aside; again to bring them back.", .spreadOut),
-        ("square.grid.3x3.fill", "Apps", "Opens the list of all installed apps.", .pinchIn),
-        ("face.smiling", "Emoji", "Opens the emoji picker where the text cursor is.", .emoji),
-        ("xmark.octagon.fill", "Force quit", "Opens the window for closing an app that hangs.", .forceQuit),
+        ("scope", String(localized: "Find the pointer"), String(localized: "Rings the cursor on the Mac. Shaking the phone does it too."), .findPointer),
+        ("macwindow.on.rectangle", String(localized: "Next window"), String(localized: "Brings the front app's next window forward, like ⌘`."), .nextWindow),
+        ("lock.fill", String(localized: "Lock screen"), String(localized: "Locks the Mac; unlock it with your password."), .lockScreen),
+        ("moon.fill", String(localized: "Display sleep"), String(localized: "Turns the screen off. Move the pointer to wake it."), .displaySleep),
+        ("camera.viewfinder", String(localized: "Screenshot"), String(localized: "Saves the whole screen as a picture on the Desktop."), .screenshot),
+        ("crop", String(localized: "Screenshot of an area"), String(localized: "Then drag on the Mac over the part to capture."), .screenshotArea),
+        ("record.circle", String(localized: "Screenshot tools"), String(localized: "Opens the panel for screen recording and options."), .screenshotTools),
+        ("rectangle.3.group", String(localized: "Mission Control"), String(localized: "Shows every open window and desktop at once."), .swipeUp),
+        ("menubar.dock.rectangle", String(localized: "Show desktop"), String(localized: "Moves the windows aside; again to bring them back."), .spreadOut),
+        ("square.grid.3x3.fill", String(localized: "Apps"), String(localized: "Opens the list of all installed apps."), .pinchIn),
+        ("face.smiling", String(localized: "Emoji"), String(localized: "Opens the emoji picker where the text cursor is."), .emoji),
+        ("xmark.octagon.fill", String(localized: "Force quit"), String(localized: "Opens the window for closing an app that hangs."), .forceQuit),
     ]
 
     var body: some View {
@@ -456,7 +460,7 @@ private struct ActionsPad: View {
     private var unlockRow: some View {
         HStack(spacing: 8) {
             RepeatKey(repeats: false, action: { controller.unlockMac() }) { pressed in
-                row(symbol: "lock.open.fill", name: "Unlock Mac", detail: "Types the Mac's password on its lock screen, after Face ID.", pressed: pressed)
+                row(symbol: "lock.open.fill", name: String(localized: "Unlock Mac"), detail: String(localized: "Types the Mac's password on its lock screen, after Face ID."), pressed: pressed)
             }
             .dimmed(controller.isMacLocked == false)
             Menu {
@@ -600,9 +604,19 @@ struct SettingsView: View {
                 Section("Skin") {
                     SkinPicker(selection: $settings.skin)
                 }
+                Section {
+                    Picker("Language", selection: $settings.language) {
+                        Text("Same as the phone").tag("")
+                        ForEach(Settings.languages, id: \.0) { Text(verbatim: $0.1).tag($0.0) }
+                    }
+                } footer: {
+                    if languageChanged {
+                        Text("Close Phone Mouse and open it again to switch the language.")
+                    }
+                }
                 Section("Speed") {
-                    slider("Pointer", value: $settings.pointerSpeed)
-                    slider("Scrolling", value: $settings.scrollSpeed)
+                    slider(String(localized: "Pointer"), value: $settings.pointerSpeed)
+                    slider(String(localized: "Scrolling"), value: $settings.scrollSpeed)
                 }
                 Section {
                     Toggle("Natural scrolling", isOn: $settings.naturalScrolling)
@@ -641,6 +655,14 @@ struct SettingsView: View {
         }
         .presentationDetents([.medium, .large])
         .preferredColorScheme(settings.skin.scheme)
+    }
+
+    // The chosen language differs from the one the app was opened in.
+    private var languageChanged: Bool {
+        let wanted = settings.language.isEmpty
+            ? Bundle.preferredLocalizations(from: Bundle.main.localizations, forPreferences: Locale.preferredLanguages).first
+            : settings.language
+        return wanted != nil && wanted != settings.launchLanguage
     }
 
     private func slider(_ title: String, value: Binding<Double>) -> some View {

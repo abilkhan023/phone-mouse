@@ -1,0 +1,2243 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "": {
+      "shouldTranslate": false
+    },
+    "%@ (away)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (не в сети)"
+          }
+        }
+      }
+    },
+    "%@ did not answer. Open Pair iPhone on the Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ не ответил. Откройте «Подключить iPhone» на Маке."
+          }
+        }
+      }
+    },
+    "%@ is no longer in sight.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ больше не виден."
+          }
+        }
+      }
+    },
+    "%@, %@": {
+      "shouldTranslate": false
+    },
+    "%lld": {
+      "shouldTranslate": false
+    },
+    "%lld ms": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мс"
+          }
+        }
+      }
+    },
+    "000000": {
+      "shouldTranslate": false
+    },
+    "Accessibility": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Универсальный доступ"
+          }
+        }
+      }
+    },
+    "All time": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "За всё время"
+          }
+        }
+      }
+    },
+    "Allow it on the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешения на Маке"
+          }
+        }
+      }
+    },
+    "Allow the microphone and speech recognition in Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешите микрофон и распознавание речи в Настройках"
+          }
+        }
+      }
+    },
+    "Already in %@.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже на языке: %@."
+          }
+        }
+      }
+    },
+    "Apps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приложения"
+          }
+        }
+      }
+    },
+    "Asking for Face ID…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос Face ID…"
+          }
+        }
+      }
+    },
+    "Auto": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Авто"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически"
+          }
+        }
+      }
+    },
+    "Automatic uses a cable when one is plugged in and the Mac answers over it, and Wi-Fi otherwise.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически — кабель, если он подключён и Мак отвечает по нему, иначе Wi-Fi."
+          }
+        }
+      }
+    },
+    "Automation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматизация"
+          }
+        }
+      }
+    },
+    "Bondi": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бонди"
+          }
+        }
+      }
+    },
+    "Brightness down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Темнее"
+          }
+        }
+      }
+    },
+    "Brightness up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ярче"
+          }
+        }
+      }
+    },
+    "Brings the front app's next window forward, like ⌘`.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выводит вперёд следующее окно текущего приложения, как ⌘`."
+          }
+        }
+      }
+    },
+    "Cable": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кабель"
+          }
+        }
+      }
+    },
+    "Cable only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только кабель"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить"
+          }
+        }
+      }
+    },
+    "Change password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сменить пароль"
+          }
+        }
+      }
+    },
+    "Characters typed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напечатано символов"
+          }
+        }
+      }
+    },
+    "Checking with %@…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка кода на %@…"
+          }
+        }
+      }
+    },
+    "Clear translations": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить переводы"
+          }
+        }
+      }
+    },
+    "Clear typed text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить набранный текст"
+          }
+        }
+      }
+    },
+    "Clicks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клики"
+          }
+        }
+      }
+    },
+    "Close Phone Mouse and open it again to switch the language.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закройте Phone Mouse и откройте снова, чтобы сменить язык."
+          }
+        }
+      }
+    },
+    "Command": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command"
+          }
+        }
+      }
+    },
+    "Connect your Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключите Мак"
+          }
+        }
+      }
+    },
+    "Connecting…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение…"
+          }
+        }
+      }
+    },
+    "Connection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение"
+          }
+        }
+      }
+    },
+    "Content follows your fingers, as on a Mac trackpad.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Содержимое движется за пальцами, как на трекпаде Мака."
+          }
+        }
+      }
+    },
+    "Control": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control"
+          }
+        }
+      }
+    },
+    "Copy to Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Копировать на Мак"
+          }
+        }
+      }
+    },
+    "Could not translate. %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось перевести. %@"
+          }
+        }
+      }
+    },
+    "Could not verify %@. Close the pairing window on the Mac, open it again and type the new code.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить %@. Закройте окно сопряжения на Маке, откройте снова и введите новый код."
+          }
+        }
+      }
+    },
+    "Counted on this iPhone only. Distances are on the Mac's screen.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Считается только на этом iPhone. Расстояния — по экрану Мака."
+          }
+        }
+      }
+    },
+    "Dictate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диктовать"
+          }
+        }
+      }
+    },
+    "Dictation is not available right now": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диктовка сейчас недоступна"
+          }
+        }
+      }
+    },
+    "Dictation language": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык диктовки"
+          }
+        }
+      }
+    },
+    "Display sleep": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить экран"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
+      }
+    },
+    "Down arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка вниз"
+          }
+        }
+      }
+    },
+    "Download for Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скачать для Мака"
+          }
+        }
+      }
+    },
+    "Drag to move, tap to click, two fingers to scroll.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ведите — курсор, касание — клик, двумя пальцами — прокрутка."
+          }
+        }
+      }
+    },
+    "Drag, tap and scroll like a Mac trackpad.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ведите, касайтесь и прокручивайте, как на трекпаде Мака."
+          }
+        }
+      }
+    },
+    "Emoji": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эмодзи"
+          }
+        }
+      }
+    },
+    "End": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End"
+          }
+        }
+      }
+    },
+    "Escape": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escape"
+          }
+        }
+      }
+    },
+    "F%lld": {
+      "shouldTranslate": false
+    },
+    "Find pointer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти курсор"
+          }
+        }
+      }
+    },
+    "Find the pointer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найти курсор"
+          }
+        }
+      }
+    },
+    "For the mini screen of the Mac on the phone.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для мини-экрана Мака на телефоне."
+          }
+        }
+      }
+    },
+    "For the tabs of Safari and Chrome in the Apps list.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для вкладок Safari и Chrome в списке приложений."
+          }
+        }
+      }
+    },
+    "Force quit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить принудительно"
+          }
+        }
+      }
+    },
+    "Forget %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забыть %@"
+          }
+        }
+      }
+    },
+    "Forget password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Забыть пароль"
+          }
+        }
+      }
+    },
+    "Forward delete": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить вперёд"
+          }
+        }
+      }
+    },
+    "Four ways to use it": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Четыре режима"
+          }
+        }
+      }
+    },
+    "Google Translate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Переводчик"
+          }
+        }
+      }
+    },
+    "Graphite": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Графит"
+          }
+        }
+      }
+    },
+    "Hide keyboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрыть клавиатуру"
+          }
+        }
+      }
+    },
+    "Hold the phone and point it at the screen.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держите телефон и наводите на экран."
+          }
+        }
+      }
+    },
+    "Hold to point": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удерживайте, чтобы указывать"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home"
+          }
+        }
+      }
+    },
+    "Hotspot": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Точка доступа"
+          }
+        }
+      }
+    },
+    "How it works": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как это работает"
+          }
+        }
+      }
+    },
+    "If a selection does not show up by itself.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если выделение не пришло само."
+          }
+        }
+      }
+    },
+    "Image copied from the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Картинка скопирована с Мака"
+          }
+        }
+      }
+    },
+    "In System Settings, Privacy & Security. The Mac asks for each one the first time it is needed.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В Системных настройках → Конфиденциальность и безопасность. Мак спросит каждое разрешение, когда оно впервые понадобится."
+          }
+        }
+      }
+    },
+    "In air": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В воздухе"
+          }
+        }
+      }
+    },
+    "In the Mac's menu bar, open Phone Mouse, choose Pair iPhone, and scan the code with this phone.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В строке меню Мака откройте Phone Mouse, выберите «Подключить iPhone» и отсканируйте код этим телефоном."
+          }
+        }
+      }
+    },
+    "Install Phone Mouse on the Mac. It lives in the menu bar.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установите Phone Mouse на Мак. Он живёт в строке меню."
+          }
+        }
+      }
+    },
+    "Keep both on the same Wi-Fi, put the Mac on this iPhone's hotspot, or connect them with a cable.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключите оба к одной Wi-Fi сети, к точке доступа этого iPhone или соедините кабелем."
+          }
+        }
+      }
+    },
+    "Kept on this iPhone and opened with Face ID. Sent to %@ only to unlock it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Хранится на этом iPhone и открывается по Face ID. Отправляется на %@ только для разблокировки."
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык"
+          }
+        }
+      }
+    },
+    "Language to translate from": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык оригинала"
+          }
+        }
+      }
+    },
+    "Language to translate into": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Язык перевода"
+          }
+        }
+      }
+    },
+    "Laser pointer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лазерная указка"
+          }
+        }
+      }
+    },
+    "Left arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка влево"
+          }
+        }
+      }
+    },
+    "Left button": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Левая кнопка"
+          }
+        }
+      }
+    },
+    "Left-handed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для левши"
+          }
+        }
+      }
+    },
+    "Listening… speak, and it is typed on the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слушаю… говорите, и текст напечатается на Маке"
+          }
+        }
+      }
+    },
+    "Loading the Mac's apps…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка приложений Мака…"
+          }
+        }
+      }
+    },
+    "Lock screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заблокировать экран"
+          }
+        }
+      }
+    },
+    "Locks the Mac; unlock it with your password.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокирует Мак; разблокировать — паролем."
+          }
+        }
+      }
+    },
+    "Looking for Macs…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск Маков…"
+          }
+        }
+      }
+    },
+    "Looking for your Mac…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск Мака…"
+          }
+        }
+      }
+    },
+    "Mac password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль Мака"
+          }
+        }
+      }
+    },
+    "Macs and settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Маки и настройки"
+          }
+        }
+      }
+    },
+    "Media, slides, apps, the Mac's screen, translation and actions.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Медиа, слайды, приложения, экран Мака, перевод и действия."
+          }
+        }
+      }
+    },
+    "Mission Control": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mission Control"
+          }
+        }
+      }
+    },
+    "Moves the windows aside; again to bring them back.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убирает окна в стороны; ещё раз — вернуть."
+          }
+        }
+      }
+    },
+    "Mute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Без звука"
+          }
+        }
+      }
+    },
+    "Natural scrolling": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Естественная прокрутка"
+          }
+        }
+      }
+    },
+    "Needed. Lets it move the pointer, click and type.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обязательно. Позволяет двигать курсор, кликать и печатать."
+          }
+        }
+      }
+    },
+    "Next": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Далее"
+          }
+        }
+      }
+    },
+    "Next slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующий слайд"
+          }
+        }
+      }
+    },
+    "Next tab ⌃⇥": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "След. вкладка ⌃⇥"
+          }
+        }
+      }
+    },
+    "Next track": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "След. трек"
+          }
+        }
+      }
+    },
+    "Next window": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующее окно"
+          }
+        }
+      }
+    },
+    "Next window ⌘`": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "След. окно ⌘`"
+          }
+        }
+      }
+    },
+    "Not connected to a Mac yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мак ещё не подключён"
+          }
+        }
+      }
+    },
+    "Not paired": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мак не подключён"
+          }
+        }
+      }
+    },
+    "Nothing open yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока ничего не открыто"
+          }
+        }
+      }
+    },
+    "On desk": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На столе"
+          }
+        }
+      }
+    },
+    "On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На Маке откройте меню Phone Mouse, выберите «Подключить iPhone» и наведите камеру на код."
+          }
+        }
+      }
+    },
+    "Open on the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть на Маке"
+          }
+        }
+      }
+    },
+    "Opens the emoji picker where the text cursor is.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает выбор эмодзи там, где текстовый курсор."
+          }
+        }
+      }
+    },
+    "Opens the list of all installed apps.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает список всех установленных приложений."
+          }
+        }
+      }
+    },
+    "Opens the panel for screen recording and options.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает панель записи экрана и параметров."
+          }
+        }
+      }
+    },
+    "Opens the window for closing an app that hangs.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает окно для закрытия зависшего приложения."
+          }
+        }
+      }
+    },
+    "Option": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Option"
+          }
+        }
+      }
+    },
+    "Or pair by code: open Pair iPhone on the Mac and choose it here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Или по коду: откройте «Подключить iPhone» на Маке и выберите его здесь."
+          }
+        }
+      }
+    },
+    "Page down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница вниз"
+          }
+        }
+      }
+    },
+    "Page up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Страница вверх"
+          }
+        }
+      }
+    },
+    "Pair a Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить Мак"
+          }
+        }
+      }
+    },
+    "Pair a Mac…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить Мак…"
+          }
+        }
+      }
+    },
+    "Pair with your Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение к Маку"
+          }
+        }
+      }
+    },
+    "Paired Macs": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключённые Маки"
+          }
+        }
+      }
+    },
+    "Password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль"
+          }
+        }
+      }
+    },
+    "Password forgotten": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль удалён"
+          }
+        }
+      }
+    },
+    "Password not read (%d)": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль не прочитан (%d)"
+          }
+        }
+      }
+    },
+    "Password not saved": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пароль не сохранён"
+          }
+        }
+      }
+    },
+    "Password options": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки пароля"
+          }
+        }
+      }
+    },
+    "Phone Mouse": {
+      "shouldTranslate": false
+    },
+    "Platinum": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Платина"
+          }
+        }
+      }
+    },
+    "Play or pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пуск/пауза"
+          }
+        }
+      }
+    },
+    "Point at the screen": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наводите на экран"
+          }
+        }
+      }
+    },
+    "Point it at the screen, slide it on the desk, or drag a finger across it. Type on the Mac, switch apps, translate what you select, and unlock the Mac with Face ID.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наводите на экран, двигайте по столу или ведите пальцем. Печатайте на Маке, переключайте приложения, переводите выделенное и разблокируйте Мак по Face ID."
+          }
+        }
+      }
+    },
+    "Pointer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Курсор"
+          }
+        }
+      }
+    },
+    "Pointer travelled": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Путь курсора"
+          }
+        }
+      }
+    },
+    "Previous slide": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Предыдущий слайд"
+          }
+        }
+      }
+    },
+    "Previous tab ⌃⇧⇥": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пред. вкладка ⌃⇧⇥"
+          }
+        }
+      }
+    },
+    "Previous track": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пред. трек"
+          }
+        }
+      }
+    },
+    "Puts the text or image copied on the phone on the Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кладёт скопированный на телефоне текст или картинку на Мак."
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти"
+          }
+        }
+      }
+    },
+    "Remote": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пульт"
+          }
+        }
+      }
+    },
+    "Reset": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить"
+          }
+        }
+      }
+    },
+    "Reset statistics": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить статистику"
+          }
+        }
+      }
+    },
+    "Reset statistics?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сбросить статистику?"
+          }
+        }
+      }
+    },
+    "Right arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка вправо"
+          }
+        }
+      }
+    },
+    "Right button": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Правая кнопка"
+          }
+        }
+      }
+    },
+    "Rings the cursor on the Mac. Shaking the phone does it too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подсвечивает курсор на Маке. То же — встряхнуть телефон."
+          }
+        }
+      }
+    },
+    "Same as the phone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Как на телефоне"
+          }
+        }
+      }
+    },
+    "Save and unlock": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить и разблокировать"
+          }
+        }
+      }
+    },
+    "Save the password for %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить пароль для %@"
+          }
+        }
+      }
+    },
+    "Saves the whole screen as a picture on the Desktop.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохраняет весь экран картинкой на Рабочий стол."
+          }
+        }
+      }
+    },
+    "Screen Recording": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись экрана"
+          }
+        }
+      }
+    },
+    "Screenshot": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок экрана"
+          }
+        }
+      }
+    },
+    "Screenshot of an area": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимок области"
+          }
+        }
+      }
+    },
+    "Screenshot tools": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструменты снимка"
+          }
+        }
+      }
+    },
+    "Scroll wheel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Колесо прокрутки"
+          }
+        }
+      }
+    },
+    "Scrolled": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прокручено"
+          }
+        }
+      }
+    },
+    "Scrolling": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прокрутка"
+          }
+        }
+      }
+    },
+    "Select text on the Mac and its translation shows here.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выделите текст на Маке — перевод появится здесь."
+          }
+        }
+      }
+    },
+    "Send clipboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить буфер"
+          }
+        }
+      }
+    },
+    "Send clipboard to the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить буфер на Мак"
+          }
+        }
+      }
+    },
+    "Sent to the Mac clipboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено в буфер Мака"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки"
+          }
+        }
+      }
+    },
+    "Shift": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shift"
+          }
+        }
+      }
+    },
+    "Show connection and delay": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать связь и задержку"
+          }
+        }
+      }
+    },
+    "Show desktop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать рабочий стол"
+          }
+        }
+      }
+    },
+    "Show keyboard": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать клавиатуру"
+          }
+        }
+      }
+    },
+    "Shows every open window and desktop at once.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывает все открытые окна и рабочие столы."
+          }
+        }
+      }
+    },
+    "Skin": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скин"
+          }
+        }
+      }
+    },
+    "Skip": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пропустить"
+          }
+        }
+      }
+    },
+    "Slide it across the desk like a mouse.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двигайте по столу, как мышь."
+          }
+        }
+      }
+    },
+    "Slide the phone across the desk like a mouse.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Двигайте телефон по столу, как мышь."
+          }
+        }
+      }
+    },
+    "Speed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скорость"
+          }
+        }
+      }
+    },
+    "Start typing": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начните печатать"
+          }
+        }
+      }
+    },
+    "Statistics": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Статистика"
+          }
+        }
+      }
+    },
+    "Still locked. Check the password": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Всё ещё заблокирован. Проверьте пароль"
+          }
+        }
+      }
+    },
+    "Stop dictation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить диктовку"
+          }
+        }
+      }
+    },
+    "Swap languages": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поменять языки"
+          }
+        }
+      }
+    },
+    "Swaps the left and right mouse buttons on the screen.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меняет местами левую и правую кнопки на экране."
+          }
+        }
+      }
+    },
+    "Tab": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab"
+          }
+        }
+      }
+    },
+    "Take selection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Взять текст"
+          }
+        }
+      }
+    },
+    "Tap the microphone to stop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите на микрофон, чтобы остановить"
+          }
+        }
+      }
+    },
+    "Tap to click · slide to move · pinch to zoom": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Касание — клик · ведите — курсор · щипок — масштаб"
+          }
+        }
+      }
+    },
+    "Text copied from the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст скопирован с Мака"
+          }
+        }
+      }
+    },
+    "The Mac is not locked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мак не заблокирован"
+          }
+        }
+      }
+    },
+    "The volume buttons set the Mac's volume.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки громкости меняют громкость Мака."
+          }
+        }
+      }
+    },
+    "Then drag on the Mac over the part to capture.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Затем обведите на Маке нужную часть."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня"
+          }
+        }
+      }
+    },
+    "Today and all time start again from zero.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Сегодня» и «За всё время» начнутся с нуля."
+          }
+        }
+      }
+    },
+    "Too large to send": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слишком большой для отправки"
+          }
+        }
+      }
+    },
+    "Touchpad": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тачпад"
+          }
+        }
+      }
+    },
+    "Translations": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переводы"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё раз"
+          }
+        }
+      }
+    },
+    "Turns the screen off. Move the pointer to wake it.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гасит экран. Двиньте курсор, чтобы разбудить."
+          }
+        }
+      }
+    },
+    "Type the code %@ shows": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите код, который показывает %@"
+          }
+        }
+      }
+    },
+    "Typed text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набранный текст"
+          }
+        }
+      }
+    },
+    "Types the Mac's password on its lock screen, after Face ID.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вводит пароль Мака на экране блокировки после Face ID."
+          }
+        }
+      }
+    },
+    "Unlock %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировать %@"
+          }
+        }
+      }
+    },
+    "Unlock Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировать Мак"
+          }
+        }
+      }
+    },
+    "Unlocked": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокирован"
+          }
+        }
+      }
+    },
+    "Unlocking…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировка…"
+          }
+        }
+      }
+    },
+    "Unlocks": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разблокировки"
+          }
+        }
+      }
+    },
+    "Up arrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стрелка вверх"
+          }
+        }
+      }
+    },
+    "Volume buttons turn the slides too.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки громкости тоже листают слайды."
+          }
+        }
+      }
+    },
+    "Volume down": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тише"
+          }
+        }
+      }
+    },
+    "Volume up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громче"
+          }
+        }
+      }
+    },
+    "Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ждём экран Мака…\nЕсли он не появляется, разрешите PhoneMouseHost запись экрана на Маке: Системные настройки → Конфиденциальность и безопасность."
+          }
+        }
+      }
+    },
+    "White": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Белый"
+          }
+        }
+      }
+    },
+    "Wi-Fi": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi"
+          }
+        }
+      }
+    },
+    "Wi-Fi direct": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wi-Fi напрямую"
+          }
+        }
+      }
+    },
+    "Wi-Fi only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только Wi-Fi"
+          }
+        }
+      }
+    },
+    "Wrong code. The Mac now shows a new one.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неверный код. Мак показывает новый."
+          }
+        }
+      }
+    },
+    "Your iPhone as a mouse, a touchpad and a remote for your Mac.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ваш iPhone — мышь, тачпад и пульт для Мака."
+          }
+        }
+      }
+    },
+    "iOS cannot translate %@ yet.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS пока не умеет переводить: %@."
+          }
+        }
+      }
+    },
+    "tab.actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё"
+          }
+        }
+      }
+    },
+    "tab.apps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окна"
+          }
+        }
+      }
+    },
+    "tab.media": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Media"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Медиа"
+          }
+        }
+      }
+    },
+    "tab.screen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран"
+          }
+        }
+      }
+    },
+    "tab.slides": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slides"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Слайды"
+          }
+        }
+      }
+    },
+    "tab.translate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевод"
+          }
+        }
+      }
+    },
+    "the Mac": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мак"
+          }
+        }
+      }
+    },
+    "×": {
+      "shouldTranslate": false
+    }
+  },
+  "version": "1.0"
+}

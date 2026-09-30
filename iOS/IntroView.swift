@@ -40,7 +40,7 @@ struct IntroView: View {
                         controller.finishIntro()
                     }
                 } label: {
-                    Text(page < pages - 1 ? "Next" : controller.pairings.isEmpty ? "Pair a Mac" : "Done")
+                    Text(page < pages - 1 ? String(localized: "Next") : controller.pairings.isEmpty ? String(localized: "Pair a Mac") : String(localized: "Done"))
                         .font(.marking(18))
                         .foregroundStyle(Palette.shellBottom)
                         .frame(maxWidth: .infinity)

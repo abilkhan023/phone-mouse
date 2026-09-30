@@ -11,10 +11,10 @@ enum PointerMode: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .air: "In air"
-        case .desk: "On desk"
-        case .touchpad: "Touchpad"
-        case .remote: "Remote"
+        case .air: String(localized: "In air")
+        case .desk: String(localized: "On desk")
+        case .touchpad: String(localized: "Touchpad")
+        case .remote: String(localized: "Remote")
         }
     }
 
@@ -29,9 +29,9 @@ enum PointerMode: String, CaseIterable {
 
     var hint: String {
         switch self {
-        case .air: "Hold the phone and point it at the screen."
-        case .desk: "Slide the phone across the desk like a mouse."
-        case .touchpad: "Drag to move, tap to click, two fingers to scroll."
+        case .air: String(localized: "Hold the phone and point it at the screen.")
+        case .desk: String(localized: "Slide the phone across the desk like a mouse.")
+        case .touchpad: String(localized: "Drag to move, tap to click, two fingers to scroll.")
         case .remote: ""
         }
     }
@@ -53,12 +53,12 @@ enum RemoteTab: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .media: "Media"
-        case .slides: "Slides"
-        case .apps: "Apps"
-        case .screen: "Screen"
-        case .actions: "Actions"
-        case .translate: "Translate"
+        case .media: String(localized: "tab.media", defaultValue: "Media")
+        case .slides: String(localized: "tab.slides", defaultValue: "Slides")
+        case .apps: String(localized: "tab.apps", defaultValue: "Apps")
+        case .screen: String(localized: "tab.screen", defaultValue: "Screen")
+        case .actions: String(localized: "tab.actions", defaultValue: "Actions")
+        case .translate: String(localized: "tab.translate", defaultValue: "Translate")
         }
     }
 }
@@ -305,10 +305,10 @@ final class MouseController {
 
     private func deliver(_ item: ClipboardItem) {
         guard item.data.count <= ClipboardItem.sizeLimit else {
-            show("Too large to send")
+            show(String(localized: "Too large to send"))
             return
         }
-        show(link.sendClipboard(item) ? "Sent to the Mac clipboard" : "Not connected to a Mac yet")
+        show(link.sendClipboard(item) ? String(localized: "Sent to the Mac clipboard") : String(localized: "Not connected to a Mac yet"))
     }
 
     func requestApps() {
@@ -368,24 +368,24 @@ final class MouseController {
     func unlockMac() {
         haptics.impactOccurred(intensity: 0.6)
         guard let host = hostName, isLinked else {
-            show("Not connected to a Mac yet")
+            show(String(localized: "Not connected to a Mac yet"))
             return
         }
         guard MacPasswords.has(host) else {
             asksMacPassword = true
             return
         }
-        show("Asking for Face ID…")
+        show(String(localized: "Asking for Face ID…"))
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let read = MacPasswords.read(host, reason: "Unlock \(host)")
+            let read = MacPasswords.read(host, reason: String(localized: "Unlock \(host)"))
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch read {
                 case let .success(password):
                     self.link.sendReliably(.unlock(password: password))
-                    self.show("Unlocking…")
+                    self.show(String(localized: "Unlocking…"))
                 case let .failure(error):
-                    self.show("Password not read (\(error.status))")
+                    self.show(String(localized: "Password not read (\(error.status))"))
                 }
             }
         }
@@ -396,15 +396,15 @@ final class MouseController {
     func saveMacPassword(_ password: String) {
         asksMacPassword = false
         guard let host = hostName, !password.isEmpty else { return }
-        LAContext().evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Save the password for \(host)") { granted, _ in
+        LAContext().evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: String(localized: "Save the password for \(host)")) { granted, _ in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 guard granted, MacPasswords.save(password, for: host) else {
-                    self.show("Password not saved")
+                    self.show(String(localized: "Password not saved"))
                     return
                 }
                 self.link.sendReliably(.unlock(password: password))
-                self.show("Unlocking…")
+                self.show(String(localized: "Unlocking…"))
             }
         }
     }
@@ -420,19 +420,19 @@ final class MouseController {
     func forgetMacPassword() {
         guard let host = hostName else { return }
         MacPasswords.forget(host)
-        show("Password forgotten")
+        show(String(localized: "Password forgotten"))
     }
 
     private func unlocked(_ outcome: UnlockOutcome) {
         switch outcome {
         case .notLocked:
-            show("The Mac is not locked")
+            show(String(localized: "The Mac is not locked"))
         case .unlocked:
             stats.record { $0.unlocks += 1 }
-            show("Unlocked")
+            show(String(localized: "Unlocked"))
             haptics.impactOccurred(intensity: 1)
         case .stillLocked:
-            show("Still locked. Check the password")
+            show(String(localized: "Still locked. Check the password"))
             asksMacPassword = true
         }
     }
@@ -480,7 +480,7 @@ final class MouseController {
             guard let image = UIImage(data: item.data) else { return }
             UIPasteboard.general.image = image
         }
-        show(item.kind == .png ? "Image copied from the Mac" : "Text copied from the Mac")
+        show(item.kind == .png ? String(localized: "Image copied from the Mac") : String(localized: "Text copied from the Mac"))
     }
 
     // The pairing screen covers the touchpad, so its keyboard goes away.
@@ -513,7 +513,7 @@ final class MouseController {
     func pairByCode(with name: String, code: String) {
         codeClient?.cancel()
         guard let host = link.host(named: name) else {
-            codeState = .failed(name, message: "\(name) is no longer in sight.")
+            codeState = .failed(name, message: String(localized: "\(name) is no longer in sight."))
             return
         }
         codeState = .waiting(name)
@@ -524,11 +524,11 @@ final class MouseController {
             case let .success(pairing):
                 self.pair(with: pairing)
             case .failure(.noAnswer):
-                self.codeState = .failed(name, message: "\(name) did not answer. Open Pair iPhone on the Mac.")
+                self.codeState = .failed(name, message: String(localized: "\(name) did not answer. Open Pair iPhone on the Mac."))
             case .failure(.wrongCode):
-                self.codeState = .failed(name, message: "Wrong code. The Mac now shows a new one.")
+                self.codeState = .failed(name, message: String(localized: "Wrong code. The Mac now shows a new one."))
             case .failure(.mismatch):
-                self.codeState = .failed(name, message: "Could not verify \(name). Close the pairing window on the Mac, open it again and type the new code.")
+                self.codeState = .failed(name, message: String(localized: "Could not verify \(name). Close the pairing window on the Mac, open it again and type the new code."))
             }
         }
     }

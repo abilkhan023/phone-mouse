@@ -37,7 +37,7 @@ struct MenuContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Text(host.isClientActive ? "Phone connected" : "Waiting for phone…")
+        Text(host.isClientActive ? String(localized: "Phone connected") : String(localized: "Waiting for phone…"))
         if !host.isTrusted {
             Button("Allow cursor control…") { host.requestAccess() }
         }

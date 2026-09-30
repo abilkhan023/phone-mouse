@@ -12,10 +12,10 @@ enum Skin: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .graphite: "Graphite"
-        case .white: "White"
-        case .platinum: "Platinum"
-        case .bondi: "Bondi"
+        case .graphite: String(localized: "Graphite")
+        case .white: String(localized: "White")
+        case .platinum: String(localized: "Platinum")
+        case .bondi: String(localized: "Bondi")
         }
     }
 
