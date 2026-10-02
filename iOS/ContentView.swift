@@ -362,7 +362,7 @@ struct PairingSheet: View {
                     Text("Pair with your Mac")
                         .font(.marking(22))
                         .foregroundStyle(Palette.ink)
-                    Text("On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.")
+                    Text("On the Mac, open the Swiss Knife menu, choose Pair iPhone and point the camera at the code.")
                         .font(.marking(15))
                         .foregroundStyle(Palette.ink.opacity(0.7))
                         .multilineTextAlignment(.center)

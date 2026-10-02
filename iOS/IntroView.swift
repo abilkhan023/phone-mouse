@@ -8,7 +8,7 @@ struct IntroView: View {
     @State private var page = 0
 
     private let pages = 4
-    private let releases = URL(string: "https://github.com/abilkhan023/phone-mouse/releases/latest")!
+    private let releases = URL(string: "https://github.com/abilkhan023/swiss-knife/releases/latest")!
 
     var body: some View {
         ZStack {
@@ -67,7 +67,7 @@ struct IntroView: View {
     }
 
     private var welcome: some View {
-        IntroPage(symbol: "computermouse", title: "Phone Mouse") {
+        IntroPage(symbol: "computermouse", title: "Swiss Knife") {
             Text("Your iPhone as a mouse, a touchpad and a remote for your Mac.")
             Text("Point it at the screen, slide it on the desk, or drag a finger across it. Type on the Mac, switch apps, translate what you select, and unlock the Mac with Face ID.")
         }
@@ -75,14 +75,14 @@ struct IntroView: View {
 
     private var connect: some View {
         IntroPage(symbol: "laptopcomputer.and.iphone", title: "Connect your Mac") {
-            IntroStep(number: 1, text: "Install Phone Mouse on the Mac. It lives in the menu bar.")
+            IntroStep(number: 1, text: "Install Swiss Knife on the Mac. It lives in the menu bar.")
             Link(destination: releases) {
                 Label("Download for Mac", systemImage: "arrow.down.circle")
                     .font(.marking(16))
             }
             .foregroundStyle(Palette.ink)
             IntroStep(number: 2, text: "Keep both on the same Wi-Fi, put the Mac on this iPhone's hotspot, or connect them with a cable.")
-            IntroStep(number: 3, text: "In the Mac's menu bar, open Phone Mouse, choose Pair iPhone, and scan the code with this phone.")
+            IntroStep(number: 3, text: "In the Mac's menu bar, open Swiss Knife, choose Pair iPhone, and scan the code with this phone.")
         }
     }
 

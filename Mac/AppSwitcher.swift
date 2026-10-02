@@ -103,6 +103,36 @@ final class AppSwitcher {
         app.activate()
     }
 
+    // The Force Quit window belongs to the system and ignores a typed ⌥⌘⎋,
+    // so its item in the Apple menu is pressed instead. The item is found by
+    // that shortcut, which holds in every language.
+    func openForceQuit() {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        var bar: AnyObject?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(app.processIdentifier), kAXMenuBarAttribute as CFString, &bar) == .success,
+              let bar, CFGetTypeID(bar) == AXUIElementGetTypeID(),
+              let apple = children(bar as! AXUIElement).first,
+              let menu = children(apple).first else { return }
+        let item = children(menu).first { item in
+            string(item, kAXMenuItemCmdCharAttribute) == "\u{1B}" || number(item, kAXMenuItemCmdVirtualKeyAttribute) == Int(KeyMap.escape)
+        }
+        if let item {
+            AXUIElementPerformAction(item, kAXPressAction as CFString)
+        }
+    }
+
+    private func children(_ element: AXUIElement) -> [AXUIElement] {
+        var value: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value) == .success else { return [] }
+        return value as? [AXUIElement] ?? []
+    }
+
+    private func number(_ element: AXUIElement, _ attribute: String) -> Int? {
+        var value: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
+        return (value as? NSNumber)?.intValue
+    }
+
     private func windows(of pid: pid_t) -> [AXUIElement] {
         var value: AnyObject?
         guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid), kAXWindowsAttribute as CFString, &value) == .success else { return [] }

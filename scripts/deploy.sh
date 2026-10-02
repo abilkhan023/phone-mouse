@@ -1,12 +1,12 @@
 #!/bin/zsh
-# Builds both apps, installs Phone Mouse on the connected iPhone and the
+# Builds both apps, installs Swiss Knife on the connected iPhone and the
 # companion in /Applications, then starts the companion.
 set -euo pipefail
 
 cd "${0:A:h}/.."
 build=".build"
 
-xcodebuild -project PhoneMouse.xcodeproj -scheme PhoneMouse -configuration Release \
+xcodebuild -project SwissKnife.xcodeproj -scheme SwissKnife -configuration Release \
     -destination 'generic/platform=iOS' -derivedDataPath "$build" -allowProvisioningUpdates -quiet build
 
 devices=$(mktemp)
@@ -26,14 +26,17 @@ PY
 )
 rm -f "$devices"
 if [[ -n "$device" ]]; then
-    xcrun devicectl device install app --device "$device" "$build/Build/Products/Release-iphoneos/PhoneMouse.app"
+    xcrun devicectl device install app --device "$device" "$build/Build/Products/Release-iphoneos/SwissKnife.app"
 else
     echo "No iPhone available, skipped installing on the phone." >&2
 fi
 
-xcodebuild -project PhoneMouse.xcodeproj -scheme PhoneMouseHost -configuration Release \
+xcodebuild -project SwissKnife.xcodeproj -scheme SwissKnifeMac -configuration Release \
     -destination 'platform=macOS' -derivedDataPath "$build" -allowProvisioningUpdates -quiet build
 
+# The companion was called PhoneMouseHost before; that copy goes away.
 pkill -x PhoneMouseHost || true
-ditto "$build/Build/Products/Release/PhoneMouseHost.app" /Applications/PhoneMouseHost.app
-open /Applications/PhoneMouseHost.app
+rm -rf /Applications/PhoneMouseHost.app
+pkill -x "Swiss Knife" || true
+ditto "$build/Build/Products/Release/Swiss Knife.app" "/Applications/Swiss Knife.app"
+open "/Applications/Swiss Knife.app"

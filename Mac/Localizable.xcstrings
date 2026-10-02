@@ -91,12 +91,12 @@
         }
       }
     },
-    "Scan with Phone Mouse on your iPhone": {
+    "Scan with Swiss Knife on your iPhone": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отсканируйте в Phone Mouse на iPhone"
+            "value": "Отсканируйте в Swiss Knife на iPhone"
           }
         }
       }

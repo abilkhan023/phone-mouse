@@ -3,16 +3,16 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Phone Mouse</string>
+	<string>Swiss Knife</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Phone Mouse lists the tabs of your browsers on the phone and switches to the one you tap.</string>
+	<string>Swiss Knife lists the tabs of your browsers on the phone and switches to the one you tap.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_phonemouse._udp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Phone Mouse uses the local network so your phone can find this Mac.</string>
+	<string>Swiss Knife uses the local network so your phone can find this Mac.</string>
 </dict>
 </plist>

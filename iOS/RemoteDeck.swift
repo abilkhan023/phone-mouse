@@ -261,7 +261,7 @@ private struct ScreenPad: View {
                 }
                 .padding(6)
             } else {
-                Text("Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.")
+                Text("Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for Swiss Knife on the Mac, in System Settings, Privacy & Security.")
                     .font(.marking(14))
                     .foregroundStyle(Palette.ink.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -435,22 +435,16 @@ private struct ActionsPad: View {
                         unlockRow
                     }
                 }
-                HStack(spacing: 12) {
-                    ClipboardButton(controller: controller)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Send clipboard")
-                            .font(.marking(16))
-                        Text("Puts the text or image copied on the phone on the Mac.")
-                            .font(.marking(12))
-                            .opacity(0.6)
-                    }
-                    Spacer(minLength: 0)
+                // The system paste button is the whole row: iOS reads the
+                // clipboard without asking only through it, and it cannot be
+                // hidden under a row of our own.
+                VStack(alignment: .leading, spacing: 6) {
+                    ClipboardButton(controller: controller, row: true)
+                    Text("Puts the text or image copied on the phone on the Mac.")
+                        .font(.marking(12))
+                        .foregroundStyle(Palette.ink.opacity(0.6))
+                        .padding(.horizontal, 14)
                 }
-                .foregroundStyle(Palette.ink)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 60)
-                .background(Palette.pressed, in: RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Palette.groove, lineWidth: 2))
             }
         }
     }
@@ -543,20 +537,34 @@ struct RemoteButton: View {
 
 // The system paste button reads the clipboard without iOS asking for
 // permission each time, so phone-to-Mac goes through it.
+struct AnyLabelStyle: LabelStyle {
+    private let make: (Configuration) -> AnyView
+
+    init<S: LabelStyle>(_ style: S) {
+        make = { AnyView(style.makeBody(configuration: $0)) }
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        make(configuration)
+    }
+}
+
 struct ClipboardButton: View {
     let controller: MouseController
     var large = false
+    // As wide as a row in Actions, with the system's Paste title.
+    var row = false
 
     var body: some View {
         PasteButton(supportedContentTypes: [.image, .plainText]) { providers in
             controller.sendClipboard(providers)
         }
-        .labelStyle(.iconOnly)
-        .buttonBorderShape(.roundedRectangle(radius: large ? 24 : 10))
+        .labelStyle(row ? AnyLabelStyle(.titleAndIcon) : AnyLabelStyle(.iconOnly))
+        .buttonBorderShape(.roundedRectangle(radius: large || row ? 18 : 10))
         .tint(Palette.pressed)
         .foregroundStyle(Palette.ink)
-        .frame(maxWidth: large ? .infinity : nil)
-        .frame(height: large ? 92 : 38)
+        .frame(maxWidth: large || row ? .infinity : nil)
+        .frame(height: large ? 92 : row ? 60 : 38)
         .accessibilityLabel("Send clipboard to the Mac")
     }
 }
@@ -611,7 +619,7 @@ struct SettingsView: View {
                     }
                 } footer: {
                     if languageChanged {
-                        Text("Close Phone Mouse and open it again to switch the language.")
+                        Text("Close Swiss Knife and open it again to switch the language.")
                     }
                 }
                 Section("Speed") {

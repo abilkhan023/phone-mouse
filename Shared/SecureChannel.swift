@@ -101,6 +101,8 @@ struct Pairing: Equatable {
 }
 
 enum PairingStore {
+    // Keychain names from before the app was called Swiss Knife; changing
+    // them would forget every pairing.
     private static let service = "PhoneMouse.pairing"
     private static let listService = "PhoneMouse.pairings"
 

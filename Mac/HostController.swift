@@ -43,7 +43,7 @@ final class HostController {
     // delay its timers: the heartbeat, and the cursor smoothing.
     @ObservationIgnored private let activity = ProcessInfo.processInfo.beginActivity(
         options: [.userInitiated, .latencyCritical],
-        reason: "Moving the cursor for Phone Mouse"
+        reason: "Moving the cursor for Swiss Knife"
     )
     @ObservationIgnored private var clipListener: NWListener?
     @ObservationIgnored private var clipStream: ClipboardStream?
@@ -74,7 +74,7 @@ final class HostController {
     private let switcher = AppSwitcher()
     // Listing apps asks browsers for their tabs and waits for them, so it
     // runs away from the cursor, in order with the commands.
-    private let switcherQueue = DispatchQueue(label: "PhoneMouse.apps")
+    private let switcherQueue = DispatchQueue(label: "SwissKnife.apps")
     private let finder = PointerFinder()
     private let streamer = ScreenStreamer()
     private let selection = SelectionReader()
@@ -614,6 +614,7 @@ final class HostController {
         switch event.kind {
         case .findPointer: finder.show()
         case .nextWindow: switcher.nextWindow()
+        case .forceQuit: switcher.openForceQuit()
         default: keyboard.apply(event)
         }
     }

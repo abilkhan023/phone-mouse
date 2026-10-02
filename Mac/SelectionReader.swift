@@ -11,7 +11,7 @@ final class SelectionReader {
 
     private let interval = 0.3
     private let keepAlive = 5.0
-    private let queue = DispatchQueue(label: "PhoneMouse.selection")
+    private let queue = DispatchQueue(label: "SwissKnife.selection")
     private let system = AXUIElementCreateSystemWide()
     private var requestedAt: TimeInterval = 0
     private var isRunning = false

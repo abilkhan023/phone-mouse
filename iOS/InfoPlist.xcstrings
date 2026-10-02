@@ -1,22 +1,12 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "NSMicrophoneUsageDescription": {
+    "NSCameraUsageDescription": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone Mouse слушает, пока вы диктуете, чтобы напечатать сказанное на Маке."
-          }
-        }
-      }
-    },
-    "NSSpeechRecognitionUsageDescription": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Phone Mouse превращает речь в текст и печатает его на Маке."
+            "value": "Swiss Knife использует камеру, чтобы отсканировать код сопряжения на Маке."
           }
         }
       }
@@ -26,17 +16,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone Mouse спрашивает Face ID, прежде чем отправить пароль Мака для разблокировки."
-          }
-        }
-      }
-    },
-    "NSCameraUsageDescription": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Phone Mouse использует камеру, чтобы отсканировать код сопряжения на Маке."
+            "value": "Swiss Knife спрашивает Face ID, прежде чем отправить пароль Мака для разблокировки."
           }
         }
       }
@@ -46,7 +26,27 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Phone Mouse использует локальную сеть, чтобы найти Мак и двигать его курсор."
+            "value": "Swiss Knife использует локальную сеть, чтобы найти Мак и двигать его курсор."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swiss Knife слушает, пока вы диктуете, чтобы напечатать сказанное на Маке."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swiss Knife превращает речь в текст и печатает его на Маке."
           }
         }
       }

@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7A0000000000000000000020 /* PhoneMouse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhoneMouse.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7A0000000000000000000021 /* PhoneMouseHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhoneMouseHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7A0000000000000000000022 /* PhoneMouse-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "PhoneMouse-Info.plist"; sourceTree = "<group>"; };
-		7A0000000000000000000023 /* PhoneMouseHost-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "PhoneMouseHost-Info.plist"; sourceTree = "<group>"; };
+		7A0000000000000000000020 /* SwissKnife.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwissKnife.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0000000000000000000021 /* Swiss Knife.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Swiss Knife.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0000000000000000000022 /* SwissKnife-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SwissKnife-Info.plist"; sourceTree = "<group>"; };
+		7A0000000000000000000023 /* SwissKnifeMac-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SwissKnifeMac-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -63,8 +63,8 @@
 		7A0000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7A0000000000000000000020 /* PhoneMouse.app */,
-				7A0000000000000000000021 /* PhoneMouseHost.app */,
+				7A0000000000000000000020 /* SwissKnife.app */,
+				7A0000000000000000000021 /* Swiss Knife.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,8 +72,8 @@
 		7A0000000000000000000004 /* Config */ = {
 			isa = PBXGroup;
 			children = (
-				7A0000000000000000000022 /* PhoneMouse-Info.plist */,
-				7A0000000000000000000023 /* PhoneMouseHost-Info.plist */,
+				7A0000000000000000000022 /* SwissKnife-Info.plist */,
+				7A0000000000000000000023 /* SwissKnifeMac-Info.plist */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -81,9 +81,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7A0000000000000000000030 /* PhoneMouse */ = {
+		7A0000000000000000000030 /* SwissKnife */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7A0000000000000000000034 /* Build configuration list for PBXNativeTarget "PhoneMouse" */;
+			buildConfigurationList = 7A0000000000000000000034 /* Build configuration list for PBXNativeTarget "SwissKnife" */;
 			buildPhases = (
 				7A0000000000000000000031 /* Sources */,
 				7A0000000000000000000032 /* Frameworks */,
@@ -97,16 +97,16 @@
 				7A0000000000000000000010 /* iOS */,
 				7A0000000000000000000012 /* Shared */,
 			);
-			name = PhoneMouse;
+			name = SwissKnife;
 			packageProductDependencies = (
 			);
-			productName = PhoneMouse;
-			productReference = 7A0000000000000000000020 /* PhoneMouse.app */;
+			productName = SwissKnife;
+			productReference = 7A0000000000000000000020 /* SwissKnife.app */;
 			productType = "com.apple.product-type.application";
 		};
-		7A0000000000000000000040 /* PhoneMouseHost */ = {
+		7A0000000000000000000040 /* SwissKnifeMac */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7A0000000000000000000044 /* Build configuration list for PBXNativeTarget "PhoneMouseHost" */;
+			buildConfigurationList = 7A0000000000000000000044 /* Build configuration list for PBXNativeTarget "SwissKnifeMac" */;
 			buildPhases = (
 				7A0000000000000000000041 /* Sources */,
 				7A0000000000000000000042 /* Frameworks */,
@@ -120,11 +120,11 @@
 				7A0000000000000000000011 /* Mac */,
 				7A0000000000000000000012 /* Shared */,
 			);
-			name = PhoneMouseHost;
+			name = SwissKnifeMac;
 			packageProductDependencies = (
 			);
-			productName = PhoneMouseHost;
-			productReference = 7A0000000000000000000021 /* PhoneMouseHost.app */;
+			productName = SwissKnifeMac;
+			productReference = 7A0000000000000000000021 /* Swiss Knife.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -145,7 +145,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7A0000000000000000000050 /* Build configuration list for PBXProject "PhoneMouse" */;
+			buildConfigurationList = 7A0000000000000000000050 /* Build configuration list for PBXProject "SwissKnife" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -160,8 +160,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7A0000000000000000000030 /* PhoneMouse */,
-				7A0000000000000000000040 /* PhoneMouseHost */,
+				7A0000000000000000000030 /* SwissKnife */,
+				7A0000000000000000000040 /* SwissKnifeMac */,
 			);
 		};
 /* End PBXProject section */
@@ -207,7 +207,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/PhoneMouse-Info.plist";
+				INFOPLIST_FILE = "Config/SwissKnife-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -227,7 +227,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/PhoneMouse-Info.plist";
+				INFOPLIST_FILE = "Config/SwissKnife-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -249,14 +249,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/PhoneMouseHost-Info.plist";
+				INFOPLIST_FILE = "Config/SwissKnifeMac-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.phonemouse.PhoneMouseHost;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Swiss Knife";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -268,14 +268,14 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/PhoneMouseHost-Info.plist";
+				INFOPLIST_FILE = "Config/SwissKnifeMac-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.phonemouse.PhoneMouseHost;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Swiss Knife";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -333,7 +333,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7A0000000000000000000034 /* Build configuration list for PBXNativeTarget "PhoneMouse" */ = {
+		7A0000000000000000000034 /* Build configuration list for PBXNativeTarget "SwissKnife" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7A0000000000000000000035 /* Debug */,
@@ -342,7 +342,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7A0000000000000000000044 /* Build configuration list for PBXNativeTarget "PhoneMouseHost" */ = {
+		7A0000000000000000000044 /* Build configuration list for PBXNativeTarget "SwissKnifeMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7A0000000000000000000045 /* Debug */,
@@ -351,7 +351,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7A0000000000000000000050 /* Build configuration list for PBXProject "PhoneMouse" */ = {
+		7A0000000000000000000050 /* Build configuration list for PBXProject "SwissKnife" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7A0000000000000000000051 /* Debug */,

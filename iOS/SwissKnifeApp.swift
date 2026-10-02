@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PhoneMouseApp: App {
+struct SwissKnifeApp: App {
     @State private var controller = MouseController()
 
     var body: some Scene {

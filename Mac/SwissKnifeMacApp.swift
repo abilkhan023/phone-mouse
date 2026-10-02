@@ -2,7 +2,7 @@ import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 @main
-struct PhoneMouseHostApp: App {
+struct SwissKnifeMacApp: App {
     @State private var host = HostController()
 
     var body: some Scene {
@@ -23,7 +23,9 @@ struct MenuLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: host.isClientActive ? "computermouse.fill" : "computermouse")
+        // The app icon's cross with a pointer: outlined while waiting, filled once
+        // the phone is connected.
+        Image(host.isClientActive ? "MenuIconConnected" : "MenuIcon")
             .task {
                 guard host.needsPairing else { return }
                 NSApp.activate()
@@ -60,7 +62,7 @@ struct PairingView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Scan with Phone Mouse on your iPhone")
+            Text("Scan with Swiss Knife on your iPhone")
                 .font(.headline)
             if let image = qrImage(host.pairing.code) {
                 Image(nsImage: image)

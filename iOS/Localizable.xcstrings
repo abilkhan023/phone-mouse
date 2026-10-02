@@ -293,12 +293,12 @@
         }
       }
     },
-    "Close Phone Mouse and open it again to switch the language.": {
+    "Close Swiss Knife and open it again to switch the language.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Закройте Phone Mouse и откройте снова, чтобы сменить язык."
+            "value": "Закройте Swiss Knife и откройте снова, чтобы сменить язык."
           }
         }
       }
@@ -736,22 +736,22 @@
         }
       }
     },
-    "In the Mac's menu bar, open Phone Mouse, choose Pair iPhone, and scan the code with this phone.": {
+    "In the Mac's menu bar, open Swiss Knife, choose Pair iPhone, and scan the code with this phone.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "В строке меню Мака откройте Phone Mouse, выберите «Подключить iPhone» и отсканируйте код этим телефоном."
+            "value": "В строке меню Мака откройте Swiss Knife, выберите «Подключить iPhone» и отсканируйте код этим телефоном."
           }
         }
       }
     },
-    "Install Phone Mouse on the Mac. It lives in the menu bar.": {
+    "Install Swiss Knife on the Mac. It lives in the menu bar.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Установите Phone Mouse на Мак. Он живёт в строке меню."
+            "value": "Установите Swiss Knife на Мак. Он живёт в строке меню."
           }
         }
       }
@@ -1086,12 +1086,12 @@
         }
       }
     },
-    "On the Mac, open the Phone Mouse menu, choose Pair iPhone and point the camera at the code.": {
+    "On the Mac, open the Swiss Knife menu, choose Pair iPhone and point the camera at the code.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "На Маке откройте меню Phone Mouse, выберите «Подключить iPhone» и наведите камеру на код."
+            "value": "На Маке откройте меню Swiss Knife, выберите «Подключить iPhone» и наведите камеру на код."
           }
         }
       }
@@ -1275,9 +1275,6 @@
           }
         }
       }
-    },
-    "Phone Mouse": {
-      "shouldTranslate": false
     },
     "Platinum": {
       "localizations": {
@@ -1579,16 +1576,6 @@
         }
       }
     },
-    "Send clipboard": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отправить буфер"
-          }
-        }
-      }
-    },
     "Send clipboard to the Mac": {
       "localizations": {
         "ru": {
@@ -1778,6 +1765,9 @@
           }
         }
       }
+    },
+    "Swiss Knife": {
+      "shouldTranslate": false
     },
     "Tab": {
       "localizations": {
@@ -2049,12 +2039,12 @@
         }
       }
     },
-    "Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for PhoneMouseHost on the Mac, in System Settings, Privacy & Security.": {
+    "Waiting for the Mac screen…\nIf it does not come, allow Screen Recording for Swiss Knife on the Mac, in System Settings, Privacy & Security.": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ждём экран Мака…\nЕсли он не появляется, разрешите PhoneMouseHost запись экрана на Маке: Системные настройки → Конфиденциальность и безопасность."
+            "value": "Ждём экран Мака…\nЕсли он не появляется, разрешите Swiss Knife запись экрана на Маке: Системные настройки → Конфиденциальность и безопасность."
           }
         }
       }

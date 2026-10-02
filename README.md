@@ -1,11 +1,15 @@
-# Phone Mouse
+# Swiss Knife
 
-Turn an iPhone into a mouse for your Mac. Slide the phone across the desk like a
-real mouse, or use its screen as a touchpad.
+Your iPhone as a pocket tool for your Mac. It is a mouse: slide the phone
+across the desk, point it at the screen, or use its screen as a touchpad. And it
+is more: a keyboard and dictation, a remote for media and slides, an app and tab
+switcher, a live view of the Mac's screen, a shared clipboard, translation of
+whatever you select, and unlocking the Mac with Face ID.
 
-Phone Mouse is two small apps: one on the iPhone that reads the motion sensors
-and the touch screen, and a menu bar companion on the Mac that moves the cursor.
-They find each other automatically, with nothing to configure.
+Swiss Knife is two small apps: one on the iPhone that reads the motion sensors
+and the touch screen, and a menu bar companion on the Mac that moves the cursor
+and does the rest. They find each other automatically, with nothing to
+configure.
 
 ## How it works
 
@@ -198,13 +202,13 @@ switch for that.
 
 Or by hand:
 
-1. Open `PhoneMouse.xcodeproj` in Xcode.
+1. Open `SwissKnife.xcodeproj` in Xcode.
 2. For both targets, choose your own team under Signing & Capabilities. Change
    the bundle identifiers if Xcode reports that they are taken.
-3. Run the `PhoneMouseHost` scheme on the Mac. Allow it under System Settings,
+3. Run the `SwissKnifeMac` scheme on the Mac. Allow it under System Settings,
    Privacy & Security, Accessibility. Without this permission macOS ignores the
    mouse events.
-4. Run the `PhoneMouse` scheme on the iPhone and allow access to the local
+4. Run the `SwissKnife` scheme on the iPhone and allow access to the local
    network when asked.
 
 The phone shows the name of the Mac and a red glow once the two are connected.

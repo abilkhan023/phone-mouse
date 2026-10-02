@@ -40,7 +40,7 @@ final class ScreenUnlocker {
     // the password field.
     private func wake() {
         var assertion: IOPMAssertionID = 0
-        IOPMAssertionDeclareUserActivity("Phone Mouse unlock" as CFString, kIOPMUserActiveLocal, &assertion)
+        IOPMAssertionDeclareUserActivity("Swiss Knife unlock" as CFString, kIOPMUserActiveLocal, &assertion)
         IOPMAssertionRelease(assertion)
     }
 }
